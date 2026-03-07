@@ -16,6 +16,12 @@ const IndicatorBuilder = () => {
         { name: "Lower", type: "line", color: "#FF5252", overlay: true }
     ]);
 
+    // NEW: State for configuring trade signal markers
+    const [markerConfigs, setMarkerConfigs] = useState([
+        { name: "Bullish_Reversal", type: "buy", color: "#00E676" },
+        { name: "Bearish_Reversal", type: "sell", color: "#FF5252" }
+    ]);
+
     const initialCode = `# =========================================
 # INDICATOR LOGIC BUILDER
 # =========================================
@@ -29,6 +35,12 @@ const IndicatorBuilder = () => {
 #    Create your new indicator columns based on the 'df' dataframe.
 #    Example: 
 #    df['SMA'] = df['Close'].rolling(window=20).mean()
+# 
+# 3. TRADE SIGNALS (MARKERS):
+#    To generate Buy/Sell arrows on the chart, create a column that equals True (or 1).
+#    Example:
+#    df['Bullish_Cross'] = df['SMA_Fast'] > df['SMA_Slow']
+#    Then, map 'Bullish_Cross' to a 'Buy' marker in the Signal Markers panel below!
 
 # Example: Bollinger Bands
 window = 20
@@ -38,9 +50,6 @@ df['SMA'] = df['Close'].rolling(window=window).mean()
 df['STD'] = df['Close'].rolling(window=window).std()
 df['Upper'] = df['SMA'] + (df['STD'] * std_dev)
 df['Lower'] = df['SMA'] - (df['STD'] * std_dev)
-
-# You can still optionally export buy/sell signals to the 'trades' list here if desired.
-# trades = [] 
 `;
 
     const preCode = `
@@ -66,7 +75,7 @@ if '${config.name}' in df.columns:
         "overlay": ${config.overlay ? 'True' : 'False'},
         "data": [
             {
-                "time": int(df['Datetime'].iloc[i].timestamp()), 
+                "time": int(float(df['Datetime'].iloc[i].timestamp())), 
                 "value": float(df['${config.name}'].iloc[i])
             }
             for i in range(len(df))
@@ -76,6 +85,32 @@ if '${config.name}' in df.columns:
 `;
             }
         });
+
+        // NEW: Auto-generate marker logic based on markerConfigs
+        if (markerConfigs.some(c => c.name.trim() !== '')) {
+            code += `\n# --- AUTO-GENERATED MARKER EXPORTS ---\n`;
+            code += `if 'trades' not in locals():\n    trades = []\n`;
+
+            markerConfigs.forEach(config => {
+                if (config.name.trim() !== '') {
+                    code += `
+if '${config.name}' in df.columns:
+    for i in range(len(df)):
+        val = df['${config.name}'].iloc[i]
+        # Only trigger if the signal is 'True' or a positive number (like 1)
+        if pd.notna(val) and (val == True or (isinstance(val, (int, float)) and val > 0)):
+            trades.append({
+                'time': int(float(df['Datetime'].iloc[i].timestamp())),
+                'type': '${config.type}',
+                'color': '${config.color}',
+                'name': '${config.name}',
+                'price': float(df['Close'].iloc[i])
+            })
+`;
+                }
+            });
+        }
+
         return code;
     };
 
@@ -146,30 +181,46 @@ if '${config.name}' in df.columns:
         setVisConfigs(newConfigs);
     };
 
+    // NEW: Handlers for Marker Configs
+    const addMarkerConfig = () => {
+        setMarkerConfigs([...markerConfigs, { name: "", type: "buy", color: "#00E676" }]);
+    };
+
+    const updateMarkerConfig = (index, field, value) => {
+        const newConfigs = [...markerConfigs];
+        newConfigs[index][field] = value;
+        setMarkerConfigs(newConfigs);
+    };
+
+    const removeMarkerConfig = (index) => {
+        const newConfigs = markerConfigs.filter((_, i) => i !== index);
+        setMarkerConfigs(newConfigs);
+    };
+
     return (
         <div className="indicator-builder">
             <style>{`
                 .indicator-builder {
                     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                    height: 100vh;
-                    background-color: #0b0e14;
-                    color: #d1d4dc;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
+                height: 100vh;
+                background-color: #0b0e14;
+                color: #d1d4dc;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
                 }
 
                 /* Scrollbar */
                 ::-webkit-scrollbar {
                     width: 6px;
-                    height: 6px;
+                height: 6px;
                 }
                 ::-webkit-scrollbar-track {
                     background: transparent;
                 }
                 ::-webkit-scrollbar-thumb {
                     background: #2A2E39;
-                    border-radius: 4px;
+                border-radius: 4px;
                 }
                 ::-webkit-scrollbar-thumb:hover {
                     background: #363C4E;
@@ -178,219 +229,224 @@ if '${config.name}' in df.columns:
                 /* Header */
                 .ib-header {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 14px 24px;
-                    background: #131722;
-                    border-bottom: 1px solid #2A2E39;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                    z-index: 10;
+                justify-content: space-between;
+                align-items: center;
+                padding: 14px 24px;
+                background: #131722;
+                border-bottom: 1px solid #2A2E39;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                z-index: 10;
                 }
                 .ib-title {
                     font-size: 18px;
-                    font-weight: 700;
-                    color: #fff;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    margin: 0;
+                font-weight: 700;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin: 0;
                 }
                 .ib-title-dot {
                     width: 8px;
-                    height: 8px;
-                    border-radius: 50%;
-                    background: #2962FF;
-                    box-shadow: 0 0 12px rgba(41, 98, 255, 0.8);
+                height: 8px;
+                border-radius: 50%;
+                background: #2962FF;
+                box-shadow: 0 0 12px rgba(41, 98, 255, 0.8);
                 }
                 .ib-btn-outline {
                     padding: 8px 16px;
-                    background: transparent;
-                    color: #8b9bb4;
-                    font-size: 13px;
-                    font-weight: 600;
-                    text-decoration: none;
-                    border: 1px solid #363C4E;
-                    border-radius: 6px;
-                    transition: all 0.2s;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
+                background: transparent;
+                color: #8b9bb4;
+                font-size: 13px;
+                font-weight: 600;
+                text-decoration: none;
+                border: 1px solid #363C4E;
+                border-radius: 6px;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
                 }
                 .ib-btn-outline:hover {
                     background: #2A2E39;
-                    color: #fff;
-                    border-color: #434651;
+                color: #fff;
+                border-color: #434651;
                 }
 
                 /* Layout Workspace */
                 .ib-workspace {
                     display: flex;
-                    flex: 1;
-                    padding: 16px;
-                    gap: 16px;
-                    overflow: hidden;
-                    background: radial-gradient(circle at 50% 0%, #171b26 0%, #0b0e14 100%);
+                flex: 1;
+                padding: 16px;
+                gap: 16px;
+                overflow: hidden;
+                background: radial-gradient(circle at 50% 0%, #171b26 0%, #0b0e14 100%);
                 }
 
                 .ib-panel-col {
                     display: flex;
-                    flex-direction: column;
-                    flex: 1;
-                    gap: 16px;
-                    min-width: 0;
+                flex-direction: column;
+                flex: 1;
+                gap: 16px;
+                min-width: 0;
                 }
 
                 .ib-card {
                     background: rgba(30, 34, 45, 0.6);
-                    backdrop-filter: blur(16px);
-                    border: 1px solid #2A2E39;
-                    border-radius: 12px;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                backdrop-filter: blur(16px);
+                border: 1px solid #2A2E39;
+                border-radius: 12px;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.15);
                 }
 
                 .ib-card-header {
                     padding: 12px 20px;
-                    background: rgba(20, 24, 34, 0.4);
-                    border-bottom: 1px solid #2A2E39;
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #e0e0e0;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
+                background: rgba(20, 24, 34, 0.4);
+                border-bottom: 1px solid #2A2E39;
+                font-size: 14px;
+                font-weight: 600;
+                color: #e0e0e0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
                 }
 
                 .ib-card-body {
                     flex: 1;
-                    overflow-y: auto;
-                    display: flex;
-                    flex-direction: column;
-                    position: relative;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                position: relative;
                 }
 
                 /* Buttons */
                 .ib-btn-primary {
                     padding: 6px 14px;
-                    background: #2962FF;
-                    color: white;
-                    font-size: 12px;
-                    font-weight: 600;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
+                background: #2962FF;
+                color: white;
+                font-size: 12px;
+                font-weight: 600;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
                 }
                 .ib-btn-primary:hover {
                     background: #1e53e5;
-                    box-shadow: 0 4px 12px rgba(41, 98, 255, 0.3);
+                box-shadow: 0 4px 12px rgba(41, 98, 255, 0.3);
                 }
 
                 .ib-btn-danger {
                     padding: 8px 12px;
-                    background: rgba(255, 82, 82, 0.1);
-                    color: #FF5252;
-                    border: 1px solid rgba(255, 82, 82, 0.2);
-                    border-radius: 6px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-size: 13px;
-                    font-weight: 500;
+                background: rgba(255, 82, 82, 0.1);
+                color: #FF5252;
+                border: 1px solid rgba(255, 82, 82, 0.2);
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-size: 13px;
+                font-weight: 500;
                 }
                 .ib-btn-danger:hover {
                     background: rgba(255, 82, 82, 0.2);
-                    border-color: rgba(255, 82, 82, 0.4);
+                border-color: rgba(255, 82, 82, 0.4);
                 }
 
                 /* Settings Config Row */
                 .ib-config-list {
                     padding: 20px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
                 }
                 .ib-config-row {
                     display: grid;
-                    grid-template-columns: 2fr 2fr 2fr 1fr auto;
-                    gap: 12px;
-                    align-items: flex-end;
-                    background: rgba(20, 24, 34, 0.5);
-                    padding: 16px;
-                    border-radius: 8px;
-                    border: 1px solid rgba(42, 46, 57, 0.6);
-                    transition: all 0.2s;
+                grid-template-columns: 2fr 2fr 2fr 1fr auto;
+                gap: 12px;
+                align-items: flex-end;
+                background: rgba(20, 24, 34, 0.5);
+                padding: 16px;
+                border-radius: 8px;
+                border: 1px solid rgba(42, 46, 57, 0.6);
+                transition: all 0.2s;
                 }
+
+                .ib-config-row-compact {
+                    grid-template-columns: 2fr 2fr 1fr auto !important;
+                }
+
                 .ib-config-row:hover {
                     border-color: #363C4E;
-                    background: rgba(20, 24, 34, 0.8);
+                background: rgba(20, 24, 34, 0.8);
                 }
 
                 .ib-input-group {
                     display: flex;
-                    flex-direction: column;
-                    gap: 6px;
+                flex-direction: column;
+                gap: 6px;
                 }
                 .ib-label {
                     font-size: 11px;
-                    color: #8b9bb4;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    font-weight: 600;
+                color: #8b9bb4;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 600;
                 }
                 .ib-input, .ib-select {
                     width: 100%;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    border: 1px solid #363C4E;
-                    background: #131722;
-                    color: #D1D4DC;
-                    font-size: 13px;
-                    transition: all 0.2s;
-                    box-sizing: border-box;
-                    height: 36px;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: 1px solid #363C4E;
+                background: #131722;
+                color: #D1D4DC;
+                font-size: 13px;
+                transition: all 0.2s;
+                box-sizing: border-box;
+                height: 36px;
                 }
                 .ib-input:focus, .ib-select:focus {
                     outline: none;
-                    border-color: #2962FF;
-                    background: #171b26;
+                border-color: #2962FF;
+                background: #171b26;
                 }
                 .ib-color-picker {
                     height: 36px;
-                    width: 100%;
-                    padding: 2px;
-                    background: #131722;
-                    border: 1px solid #363C4E;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    box-sizing: border-box;
+                width: 100%;
+                padding: 2px;
+                background: #131722;
+                border: 1px solid #363C4E;
+                border-radius: 6px;
+                cursor: pointer;
+                box-sizing: border-box;
                 }
 
                 .ib-empty-state {
                     color: #8b9bb4;
-                    font-size: 13px;
-                    text-align: center;
-                    padding: 30px;
-                    background: rgba(20, 24, 34, 0.3);
-                    border: 1px dashed #363C4E;
-                    border-radius: 8px;
+                font-size: 13px;
+                text-align: center;
+                padding: 30px;
+                background: rgba(20, 24, 34, 0.3);
+                border: 1px dashed #363C4E;
+                border-radius: 8px;
                 }
 
                 .ib-hint {
                     margin: 0 20px 20px;
-                    padding: 12px 16px;
-                    background: rgba(41, 98, 255, 0.1);
-                    border-left: 3px solid #2962FF;
-                    border-radius: 0 6px 6px 0;
-                    color: #8b9bb4;
-                    font-size: 12px;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
+                padding: 12px 16px;
+                background: rgba(41, 98, 255, 0.1);
+                border-left: 3px solid #2962FF;
+                border-radius: 0 6px 6px 0;
+                color: #8b9bb4;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
                 }
             `}</style>
 
@@ -433,7 +489,7 @@ if '${config.name}' in df.columns:
                     </div>
 
                     {/* Vis Settings Card */}
-                    <div className="ib-card" style={{ flex: 1.5 }}>
+                    <div className="ib-card" style={{ flex: 1.5, minHeight: '200px' }}>
                         <div className="ib-card-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E676" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
@@ -513,6 +569,77 @@ if '${config.name}' in df.columns:
                             </div>
                         </div>
                     </div>
+
+                    {/* NEW: Trade Signals / Markers Card */}
+                    <div className="ib-card" style={{ flex: 1.5, minHeight: '200px' }}>
+                        <div className="ib-card-header">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5252" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                Trade Signals (Markers)
+                            </div>
+                            <button onClick={addMarkerConfig} className="ib-btn-primary">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add Signal
+                            </button>
+                        </div>
+                        <div className="ib-card-body">
+                            <div className="ib-config-list">
+                                {markerConfigs.length === 0 ? (
+                                    <div className="ib-empty-state">
+                                        No signal markers configured. Click "Add Signal" to map a column to buy/sell arrows.
+                                    </div>
+                                ) : (
+                                    markerConfigs.map((config, i) => (
+                                        <div key={i} className="ib-config-row ib-config-row-compact">
+                                            <div className="ib-input-group">
+                                                <label className="ib-label">Logic Column</label>
+                                                <input
+                                                    type="text"
+                                                    value={config.name}
+                                                    onChange={(e) => updateMarkerConfig(i, 'name', e.target.value)}
+                                                    placeholder="e.g. Bullish_Reversal"
+                                                    className="ib-input"
+                                                />
+                                            </div>
+
+                                            <div className="ib-input-group">
+                                                <label className="ib-label">Marker Direction</label>
+                                                <select
+                                                    value={config.type}
+                                                    onChange={(e) => updateMarkerConfig(i, 'type', e.target.value)}
+                                                    className="ib-select"
+                                                >
+                                                    <option value="buy">Buy (Up Arrow)</option>
+                                                    <option value="sell">Sell (Down Arrow)</option>
+                                                </select>
+                                            </div>
+
+                                            <div className="ib-input-group">
+                                                <label className="ib-label">Color</label>
+                                                <input
+                                                    type="color"
+                                                    value={config.color}
+                                                    onChange={(e) => updateMarkerConfig(i, 'color', e.target.value)}
+                                                    className="ib-color-picker"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <button onClick={() => removeMarkerConfig(i)} className="ib-btn-danger" title="Remove Signal">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            <div className="ib-hint">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                <span>Puts a marker on the chart whenever the specified Logic Column evaluates to True (or &gt; 0).</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 {/* Right Column: Chart & Results */}

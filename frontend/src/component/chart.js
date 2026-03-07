@@ -395,13 +395,18 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
 
         console.log("Trades received in Chart:", trades.length);
 
-        const markers = trades.filter(t => t && t.type).map(trade => ({
-            time: trade.time,
-            position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
-            color: trade.type === 'buy' ? '#2196F3' : '#E91E63',
-            shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
-            text: trade.type.toUpperCase() + (trade.price ? ` @ ${trade.price}` : ''),
-        }));
+        const markers = trades.filter(t => t && t.type).map(trade => {
+            // Check if there is an explicit color on this trade object
+            const tradeColor = trade.color ? trade.color : (trade.type === 'buy' ? '#2196F3' : '#E91E63');
+
+            return {
+                time: trade.time,
+                position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
+                color: tradeColor,
+                shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
+                text: (trade.name ? trade.name : trade.type.toUpperCase()) + (trade.price ? ` @ ${trade.price.toFixed(2)}` : ''),
+            };
+        });
 
         // Sort markers by time (required by Lightweight Charts)
         markers.sort((a, b) => a.time - b.time);

@@ -1,5 +1,8 @@
 import pandas as pd
+import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 import sys
 import io
@@ -8,6 +11,21 @@ import json
 import os
 
 app = FastAPI()
+
+def convert_numpy_types(obj):
+    if isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, (np.integer,)):
+        return int(obj)
+    elif isinstance(obj, (np.floating,)):
+        return float(obj)
+    elif isinstance(obj, (np.ndarray,)):
+        return convert_numpy_types(obj.tolist())
+    elif isinstance(obj, (bool, np.bool_)):
+        return bool(obj)
+    return obj
 
 # Global Data Cache
 _global_df = None
@@ -163,7 +181,11 @@ async def execute_python(request: ExecutionRequest):
     if 'indicators' in exec_locals and isinstance(exec_locals['indicators'], list):
          result['indicators'] = exec_locals['indicators']
 
-    return result
+    print(f"Extracted {len(result['trades'])} trades and {len(result['indicators'])} indicators.")
+    
+    # Clean any sneaky numpy types before returning
+    clean_result = convert_numpy_types(result)
+    return clean_result
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,6 +9,9 @@ router.post('/preview', async (req, res) => {
         return res.status(400).json({ error: 'No code provided' });
     }
 
+    console.log("=== RECEIVED PAYLOAD IN BACKEND ===");
+    console.log(code);
+
     try {
         const result = await executePythonScript(code, 'indicator');
         res.json(result);

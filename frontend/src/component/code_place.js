@@ -107,7 +107,9 @@ print(f"Generated {len(trades)} trades")
                 normalizedTrades.push({
                     time: parseCustomDate(timeVal),
                     type: String(typeVal).toLowerCase().includes('buy') ? 'buy' : 'sell',
-                    price: parseFloat(priceVal)
+                    price: parseFloat(priceVal),
+                    color: trade.color,
+                    name: trade.name
                 });
                 return;
             }
@@ -141,12 +143,16 @@ print(f"Generated {len(trades)} trades")
         const endpoint = apiEndpoint || 'http://localhost:5000/api/signals/create-signal';
 
         try {
+            const finalCodeString = `${preCode}\n${code}\n${postCode}`;
+            console.log("=== SENDING TO BACKEND ===");
+            console.log(finalCodeString);
+
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ code: `${preCode}\n${code}\n${postCode}` }),
+                body: JSON.stringify({ code: finalCodeString }),
             });
 
             if (!response.ok) {

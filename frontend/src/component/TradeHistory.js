@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const TradeHistory = ({ trades }) => {
+    const navigate = useNavigate();
+    const [view, setView] = useState('trades'); // 'trades' or 'logs'
     const [tradeLog, setTradeLog] = useState([]);
     const [initialBalance, setInitialBalance] = useState(10000); // Default $10,000 account
 
@@ -72,23 +75,79 @@ const TradeHistory = ({ trades }) => {
             height: '100%'
         }}>
             <div style={{
-                padding: '10px',
+                padding: '12px 20px',
                 borderBottom: '1px solid #333',
                 background: '#252526',
-                fontWeight: 'bold',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <span>Account History</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 'normal' }}>
-                    <label title="Starting Capital">Initial Balance ($):</label>
-                    <input
-                        type="number"
-                        value={initialBalance}
-                        onChange={(e) => setInitialBalance(Number(e.target.value))}
-                        style={{ width: '80px', background: '#333', color: '#FFF', border: '1px solid #555', padding: '2px' }}
-                    />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <span style={{ fontWeight: '800', fontSize: '14px', letterSpacing: '0.5px', color: '#fff' }}>TRADE BLOTTER</span>
+                    <div style={{ display: 'flex', background: '#111', borderRadius: '6px', padding: '2px' }}>
+                        <button
+                            onClick={() => setView('trades')}
+                            style={{
+                                padding: '4px 12px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                background: view === 'trades' ? '#333' : 'transparent',
+                                color: view === 'trades' ? '#fff' : '#666'
+                            }}
+                        >
+                            CLOSED TRADES
+                        </button>
+                        <button
+                            onClick={() => setView('logs')}
+                            style={{
+                                padding: '4px 12px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                background: view === 'logs' ? '#333' : 'transparent',
+                                color: view === 'logs' ? '#fff' : '#666'
+                            }}
+                        >
+                            ACTIVITY LOG
+                        </button>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: '600', color: '#888' }}>
+                        <label>INITIAL CAPITAL:</label>
+                        <input
+                            type="number"
+                            value={initialBalance}
+                            onChange={(e) => setInitialBalance(Number(e.target.value))}
+                            style={{ width: '70px', background: '#111', color: '#00E676', border: '1px solid #333', borderRadius: '4px', padding: '4px 8px', fontWeight: '800' }}
+                        />
+                    </div>
+                    {trades && trades.length > 0 && (
+                        <button
+                            onClick={() => navigate('/analytics', { state: { trades } })}
+                            style={{
+                                padding: '6px 16px',
+                                background: '#2962FF',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: '800',
+                                fontSize: '11px',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                boxShadow: '0 4px 12px rgba(41, 98, 255, 0.3)'
+                            }}
+                        >
+                            Analyze Strategy &rarr;
+                        </button>
+                    )}
                 </div>
             </div>
             <div style={{ flex: 1, overflow: 'auto', padding: '10px' }}>

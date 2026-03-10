@@ -5,30 +5,37 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 
 
-const resizeObserverLoopErr = 'ResizeObserver loop completed with undelivered notifications';
+// Patch ResizeObserver to prevent "ResizeObserver loop limit exceeded" or "ResizeObserver loop completed with undelivered notifications."
+if (typeof window !== 'undefined' && window.ResizeObserver) {
+  // Hide the Webpack dev server overlay if it pops up for this specific error
+  window.addEventListener('error', e => {
+    if (
+      e.message === 'ResizeObserver loop limit exceeded' ||
+      e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+      e.message === 'ResizeObserver loop completed with undelivered notifications'
+    ) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
 
-// Patch console.error to filter out this specific error
-const originalError = console.error;
-console.error = (...args) => {
-  if (
-    typeof args[0] === 'string' &&
-    (args[0].includes(resizeObserverLoopErr) || args[0].includes('ResizeObserver loop limit exceeded'))
-  ) {
-    return;
-  }
-  originalError.call(console, ...args);
-};
+      const overlayDiv = document.getElementById('webpack-dev-server-client-overlay-div');
+      const overlay = document.getElementById('webpack-dev-server-client-overlay');
+      if (overlay) overlay.setAttribute('style', 'display: none');
+      if (overlayDiv) overlayDiv.setAttribute('style', 'display: none');
+    }
+  });
 
-// Global error handler with capture phase (true) to intercept before others
-window.addEventListener('error', (e) => {
-  if (
-    e.message &&
-    (e.message.includes(resizeObserverLoopErr) || e.message.includes('ResizeObserver loop limit exceeded'))
-  ) {
-    e.stopImmediatePropagation();
-    e.preventDefault(); // Prevent browser console log if possible
-  }
-}, true);
+  // Wrap the callback in requestAnimationFrame to decouple logic from the resize event loop
+  const _ResizeObserver = window.ResizeObserver;
+  window.ResizeObserver = class ResizeObserver extends _ResizeObserver {
+    constructor(callback) {
+      super((entries, observer) => {
+        window.requestAnimationFrame(() => {
+          callback(entries, observer);
+        });
+      });
+    }
+  };
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -252,46 +252,49 @@ print(f"Generated {len(trades)} trades")
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "20px", gap: "20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2>Python Algorithm Editor</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0px" }}>
+                <h2 style={{ fontSize: "16px", margin: 0, color: "#8b9bb4" }}>Python Script Algorithm</h2>
                 <div style={{ display: "flex", gap: "10px" }}>
                     {apiEndpoint === "http://localhost:5000/api/indicators/preview" && (
                         <button
                             onClick={saveIndicator}
                             disabled={isRunning}
                             style={{
-                                padding: "10px 20px",
-                                fontSize: "16px",
-                                backgroundColor: isRunning ? "#ccc" : "#4CAF50",
-                                color: "white",
-                                border: "none",
-                                borderRadius: "5px",
-                                cursor: isRunning ? "not-allowed" : "pointer"
+                                padding: "6px 14px",
+                                fontSize: "13px",
+                                backgroundColor: isRunning ? "transparent" : "rgba(76, 175, 80, 0.1)",
+                                color: isRunning ? "#ccc" : "#4CAF50",
+                                border: "1px solid " + (isRunning ? "#555" : "rgba(76, 175, 80, 0.3)"),
+                                borderRadius: "4px",
+                                cursor: isRunning ? "not-allowed" : "pointer",
+                                transition: "all 0.2s"
                             }}
                         >
-                            {isRunning ? "Running..." : "Save Indicator Data"}
+                            {isRunning ? "Running..." : "Save Indicator"}
                         </button>
                     )}
                     <button
                         onClick={runOnBackend}
                         disabled={isRunning}
                         style={{
-                            padding: "10px 20px",
-                            fontSize: "16px",
-                            backgroundColor: isRunning ? "#ccc" : "#2196F3",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "5px",
-                            cursor: isRunning ? "not-allowed" : "pointer"
+                            padding: "6px 14px",
+                            fontSize: "13px",
+                            backgroundColor: isRunning ? "transparent" : "rgba(33, 150, 243, 0.1)",
+                            color: isRunning ? "#ccc" : "#2196F3",
+                            border: "1px solid " + (isRunning ? "#555" : "rgba(33, 150, 243, 0.3)"),
+                            borderRadius: "4px",
+                            cursor: isRunning ? "not-allowed" : "pointer",
+                            transition: "all 0.2s"
                         }}
                     >
-                        {isRunning ? "Running..." : "Run on Backend"}
+                        {isRunning ? "Running..." : "Run Algorithm"}
                     </button>
                 </div>
             </div>
 
-            <div style={{ display: "flex", gap: "20px", flex: 1, minHeight: 0 }}>
-                <div style={{ flex: 1, border: "1px solid #ddd", borderRadius: "5px", overflow: "hidden" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1, minHeight: 0 }}>
+                {/* Editor Container */}
+                <div style={{ flex: 2, display: "flex", flexDirection: "column", border: "1px solid #2A2E39", borderRadius: "8px", overflow: "hidden" }}>
                     <Editor
                         height="100%"
                         defaultLanguage="python"
@@ -301,20 +304,23 @@ print(f"Generated {len(trades)} trades")
                         options={{
                             minimap: { enabled: false },
                             fontSize: 14,
+                            scrollBeyondLastLine: false,
+                            wordWrap: "on"
                         }}
                     />
                 </div>
 
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", border: "1px solid #ddd", borderRadius: "5px", backgroundColor: "#1e1e1e", color: "#d4d4d4" }}>
-                    <div style={{ padding: "10px", borderBottom: "1px solid #333", backgroundColor: "#252526" }}>
-                        <strong>Output</strong>
+                {/* Output Container */}
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", border: "1px solid #2A2E39", borderRadius: "8px", backgroundColor: "#1e1e1e", color: "#d4d4d4", overflow: "hidden" }}>
+                    <div style={{ padding: "8px 12px", borderBottom: "1px solid #2A2E39", backgroundColor: "rgba(20, 24, 34, 0.5)", fontSize: "12px", color: "#8b9bb4", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>
+                        Console Output
                     </div>
-                    <pre ref={outputRef} style={{ padding: "10px", margin: 0, overflow: "auto", flex: 1, fontFamily: "Consolas, 'Courier New', monospace" }}>
-                        {output}
+                    <pre ref={outputRef} style={{ padding: "12px", margin: 0, overflow: "auto", flex: 1, fontFamily: "Consolas, 'Courier New', monospace", fontSize: "13px" }}>
+                        {output || "No output yet."}
                     </pre>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

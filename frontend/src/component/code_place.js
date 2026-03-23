@@ -251,7 +251,7 @@ print(f"Generated {len(trades)} trades")
     };
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "20px", gap: "20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "12px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0px" }}>
                 <h2 style={{ fontSize: "16px", margin: 0, color: "#8b9bb4" }}>Python Script Algorithm</h2>
                 <div style={{ display: "flex", gap: "10px" }}>

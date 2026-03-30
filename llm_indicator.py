@@ -450,19 +450,26 @@ def _strip_markdown_table(content: str) -> str:
         if cleaned.startswith('|') and cleaned.endswith('|'):
             inner = cleaned[1:-1]
             cells = [c.strip() for c in inner.split('|')]
-            # Skip pure header rows (all caps words only)
-            if all(re.match(r'^[A-Z_\s]+$', c) for c in cells if c):
+            # Skip pure header rows (all caps OR known mixed-case header words)
+            header_words = {'id', 'name', 'window', 'column', 'column_name',
+                            'condition', 'expression', 'meaning', 'indicator',
+                            'nan_note', 'code', 'guard', 'type'}
+            if (all(re.match(r'^[A-Z_\s]+$', c) for c in cells if c)
+                    or all(c.lower().strip() in header_words for c in cells if c)):
                 continue
             if cells:
                 output.append(' | '.join(cells))
 
         # If it's a bullet-style pipe-separated line: "Body | 1 | df['Body']"
         elif '|' in cleaned and not cleaned.startswith('#'):
-            # Verify it has at least 2 pipe-separated parts that look like data
             parts = [p.strip() for p in cleaned.split('|')]
             if len(parts) >= 2 and parts[0]:
-                # Skip if it looks like a pure header (all uppercase)
-                if all(re.match(r'^[A-Z_\s]+$', p) for p in parts if p):
+                header_words = {'id', 'name', 'window', 'column', 'column_name',
+                                'condition', 'expression', 'meaning', 'indicator',
+                                'nan_note', 'code', 'guard', 'type'}
+                # Skip header rows — all caps OR all known header words
+                if (all(re.match(r'^[A-Z_\s]+$', p) for p in parts if p)
+                        or all(p.lower().strip() in header_words for p in parts if p)):
                     continue
                 output.append(' | '.join(p for p in parts if p != ''))
         else:
@@ -473,37 +480,35 @@ def _strip_markdown_table(content: str) -> str:
 
 def _clean_signal_logic(logic: str) -> str:
     """
-    Strip trailing pipe chars, markdown backticks, empty groups, and whitespace.
-    Also deduplicates repeated C-variable combinations.
+    Strip trailing pipe artifacts, backticks, empty groups.
+    Preserves valid OR combinations like C2 | ~C1.
     """
     if not logic:
         return logic
-    # Remove backticks: `C1 & C2` -> C1 & C2
     logic = logic.strip('`').strip()
-    # Remove trailing pipe with optional empty group: "C1 | (" or "C1 | ()"
+    # Remove trailing pipe + empty group: "C1 | (" or "C1 | ()"
     logic = re.sub(r'\s*\|\s*\(?\s*\)?\s*$', '', logic).strip()
     # Remove trailing standalone pipe
-    logic = logic.rstrip('|').strip()
+    logic = re.sub(r'\s*\|\s*$', '', logic).strip()
     # Take only the first line
     logic = logic.splitlines()[0].strip() if logic else logic
-    # Remove markdown bold **C1** -> C1
+    # Remove markdown bold
     logic = re.sub(r'\*\*(.+?)\*\*', r'\1', logic)
-    # Remove any trailing whitespace + pipe + anything after
-    logic = re.sub(r'\s*\|.*$', '', logic).strip()
-    # Deduplicate: "C1 & C1" -> "C1", "C1 | C1" -> "C1"
-    # Split on & or | preserving operators, remove exact duplicates
-    parts = re.split(r'(\s*[&|]\s*)', logic)
-    seen  = set()
-    dedup = []
+    # Strip trailing | followed by prose (not a C-var, ~ or operator)
+    # "C1 | some prose" -> "C1"  but "C2 | ~C1" stays intact
+    logic = re.sub(r'\s*\|\s*(?![~C\d\s&|()]).*$', '', logic).strip()
+    # Deduplicate C1 & C1 -> C1 (& only, not |)
+    parts = re.split(r'(\s*&\s*)', logic)
+    seen, dedup = set(), []
     for part in parts:
         clean = part.strip()
-        if clean in ('&', '|', ''):
+        if clean == '&' or clean == '':
             if dedup:
                 dedup.append(part)
         elif clean not in seen:
             seen.add(clean)
             dedup.append(part)
-    logic = ''.join(dedup).strip().rstrip('&|').strip()
+    logic = ''.join(dedup).strip().rstrip('&').strip()
     return logic
 
 
@@ -612,16 +617,13 @@ def _post_process_section(tag: str, content: str) -> str:
     # Clean signal logic — strip pipes, backticks, take first line only
     if tag_upper == 'SIGNAL_LOGIC':
         # Case 1: backtick-wrapped code block ```python\ndf['Vibe_Signal']=(C1&C2).fillna...```
-        # Extract C-variable combination from inside the block
         code_block = re.search(r'```(?:python)?\s*(.*?)```', content, re.DOTALL)
         if code_block:
             block_content = code_block.group(1)
-            # Extract C1 & C2 & C3 style combination from the signal line
             cv_match = re.search(r'\(([\s~C\d&|()]+)\)\.fillna', block_content)
             if cv_match:
                 content = cv_match.group(1).strip()
             else:
-                # Just find any C-variable combination
                 cv_match2 = re.search(r'(~?\s*C\d+[\s&|~()C\d]*)', block_content)
                 content = cv_match2.group(1).strip() if cv_match2 else content
         else:
@@ -630,10 +632,34 @@ def _post_process_section(tag: str, content: str) -> str:
             if m:
                 content = m.group(1)
             else:
-                # Strip bullet points and labels like "- Signal: " or "Logic: "
-                content = re.sub(r'^[-*]\s*(?:Signal|Logic|The\s+final\s+signal[^:]*):?\s*',
-                                 '', content, flags=re.IGNORECASE | re.MULTILINE)
-                content = content.strip()
+                # Case 3: "- Signal = C2 | ~C1" or "Signal = C2 | ~C1" pattern
+                sig_eq = re.search(
+                    r'[-*]?\s*Signal\s*=\s*([~C\d\s&|()|]+)',
+                    content, re.IGNORECASE)
+                if sig_eq:
+                    content = sig_eq.group(1).strip()
+                else:
+                    # Case 4: scan all lines for a C-variable combination
+                    # Take the first line that contains C\d with & | ~
+                    best = None
+                    for line in content.splitlines():
+                        stripped = line.strip().lstrip('-* ')
+                        # Strip "Signal:" or "Logic:" label prefixes
+                        stripped = re.sub(
+                            r'^(?:Signal|Logic|The\s+final\s+signal[^:]*):?\s*',
+                            '', stripped, flags=re.IGNORECASE)
+                        # Check if this line looks like C-var logic
+                        if re.search(r'~?\s*C\d+', stripped):
+                            best = stripped
+                            break
+                    if best:
+                        content = best
+                    else:
+                        # Last resort: strip all prose prefixes
+                        content = re.sub(
+                            r'^[-*]\s*(?:Signal|Logic|The\s+final\s+signal[^:]*):?\s*',
+                            '', content, flags=re.IGNORECASE | re.MULTILINE)
+                        content = content.strip()
         content = _clean_signal_logic(content)
 
     # Strip markdown bold/italic from all sections

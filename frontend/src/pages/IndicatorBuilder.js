@@ -54,6 +54,7 @@ df['Lower'] = df['SMA'] - (df['STD'] * std_dev)
 
     const preCode = `
 import pandas as pd
+import numpy as np
 
 # The backend already removes the space from '20250101 170000' -> '20250101170000'
 if 'Datetime' not in df.columns:
@@ -61,8 +62,8 @@ if 'Datetime' not in df.columns:
 `;
 
     const generatePostCode = () => {
-        let code = `\n# --- AUTO-GENERATED VISUALIZATION EXPORTS ---\n`;
-        code += `indicators = []\n`;
+        let code = `\n# --- SMART VISUALIZATION EXPORTS ---\n`;
+        code += `if 'indicators' not in locals(): indicators = []\n`;
 
         visConfigs.forEach(config => {
             if (config.name.trim() !== '') {

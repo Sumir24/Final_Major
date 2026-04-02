@@ -4,18 +4,40 @@ import './App.css';
 import Terminal from './pages/terminal';
 import IndicatorBuilder from './pages/IndicatorBuilder';
 import Analytics from './pages/Analytics';
+import { AuthProvider } from './context/AuthContext';
+import PrivateRoute from './component/PrivateRoute';
+
+import Login from './pages/Login';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<Terminal />} />
-          <Route path="/indicator-builder" element={<IndicatorBuilder />} />
-          <Route path="/analytics" element={<Analytics />} />
-        </Routes>
-      </div>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <Routes>
+            {/* Main Application Routes - Protected */}
+            <Route path="/" element={
+              <PrivateRoute>
+                <Terminal />
+              </PrivateRoute>
+            } />
+            <Route path="/indicator-builder" element={
+              <PrivateRoute>
+                <IndicatorBuilder />
+              </PrivateRoute>
+            } />
+            <Route path="/analytics" element={
+              <PrivateRoute>
+                <Analytics />
+              </PrivateRoute>
+            } />
+
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+          </Routes>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

@@ -10,7 +10,7 @@ const timeframes = [
     { label: '1D', value: '1d', duration: 1440 },
 ];
 
-const Chart = ({ trades = [], indicators = [], data: csvData }) => {
+const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / EURUSD" }) => {
     const chartContainerRef = useRef();
     const chartRef = useRef(null);
     const legendRef = useRef(null);
@@ -57,20 +57,20 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
-                background: { type: ColorType.Solid, color: '#1E1E1E' },
+                background: { type: ColorType.Solid, color: '#080808' },
                 textColor: '#DDD',
             },
             leftPriceScale: {
-                visible: true,
-                borderColor: '#2B2B43',
+                visible: false, // Cleaner look
+                borderColor: '#1e222d',
             },
             rightPriceScale: {
                 visible: true,
-                borderColor: '#2B2B43',
+                borderColor: '#1e222d',
             },
             grid: {
-                vertLines: { color: '#2B2B43' },
-                horzLines: { color: '#2B2B43' },
+                vertLines: { color: 'rgba(30, 34, 45, 0.4)' },
+                horzLines: { color: 'rgba(30, 34, 45, 0.4)' },
             },
             width: chartContainerRef.current.clientWidth,
             height: chartContainerRef.current.clientHeight || 500,
@@ -94,11 +94,11 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
         chartRef.current = chart;
 
         const candlestickSeries = chart.addCandlestickSeries({
-            upColor: '#26a69a',
-            downColor: '#ef5350',
+            upColor: '#00c076',
+            downColor: '#ff3b30',
             borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
+            wickUpColor: '#00c076',
+            wickDownColor: '#ff3b30',
         });
         candlestickSeriesRef.current = candlestickSeries;
 
@@ -111,15 +111,36 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
                 const high = data.high.toFixed(5);
                 const low = data.low.toFixed(5);
                 const close = data.close.toFixed(5);
-                const color = data.close >= data.open ? '#26a69a' : '#ef5350';
+                const isUp = data.close >= data.open;
+                const color = isUp ? '#00c076' : '#ff3b30';
+
+                const change = ((data.close - data.open) / data.open * 100).toFixed(2);
+                const changeSign = change >= 0 ? '+' : '';
 
                 legendRef.current.innerHTML = `
-                    <div style="font-size: 16px; margin-bottom: 5px; color: ${color}">EURUSD</div>
-                    <div style="display: flex; gap: 10px; font-size: 14px; margin-bottom: 5px;">
-                        <div>O: <span style="color: ${color}">${open}</span></div>
-                        <div>H: <span style="color: ${color}">${high}</span></div>
-                        <div>L: <span style="color: ${color}">${low}</span></div>
-                        <div>C: <span style="color: ${color}">${close}</span></div>
+                    <div style="
+                        background: rgba(19, 23, 34, 0.7);
+                        backdrop-filter: blur(8px);
+                        border: 1px solid rgba(42, 46, 57, 0.5);
+                        padding: 12px 16px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                        min-width: 180px;
+                        pointer-events: none;
+                    ">
+                        <div style="font-size: 13px; font-weight: 500; color: #8b9bb4; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                            ${symbol}
+                        </div>
+                        <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
+                            <span style="font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.5px;">${close}</span>
+                            <span style="font-size: 14px; font-weight: 600; color: ${color};">${changeSign}${change}%</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; color: #8b9bb4;">
+                            <div>O: <span style="color: #d1d4dc">${open}</span></div>
+                            <div>H: <span style="color: #d1d4dc">${high}</span></div>
+                            <div>L: <span style="color: #d1d4dc">${low}</span></div>
+                            <div>C: <span style="color: #d1d4dc">${close}</span></div>
+                        </div>
                     </div>
                 `;
             }
@@ -396,15 +417,16 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
         console.log("Trades received in Chart:", trades.length);
 
         const markers = trades.filter(t => t && t.type).map(trade => {
-            // Check if there is an explicit color on this trade object
-            const tradeColor = trade.color ? trade.color : (trade.type === 'buy' ? '#2196F3' : '#E91E63');
+            const isBuy = trade.type === 'buy';
+            const tradeColor = trade.color ? trade.color : (isBuy ? '#00c076' : '#ff3b30');
 
             return {
                 time: trade.time,
-                position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
+                position: isBuy ? 'belowBar' : 'aboveBar',
                 color: tradeColor,
-                shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
-                text: (trade.name ? trade.name : trade.type.toUpperCase()) + (trade.price ? ` @ ${trade.price.toFixed(2)}` : ''),
+                shape: isBuy ? 'arrowUp' : 'arrowDown',
+                text: (isBuy ? 'B' : 'S'), // Compact label (B/S)
+                size: 2, // Larger for better visibility
             };
         });
 
@@ -419,8 +441,8 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
             {/* Toolbar */}
             <div style={{
                 padding: '10px',
-                background: '#1E1E1E',
-                borderBottom: '1px solid #2B2B43',
+                background: '#080808',
+                borderBottom: '1px solid #1e222d',
                 display: 'flex',
                 gap: '10px'
             }}>
@@ -429,13 +451,16 @@ const Chart = ({ trades = [], indicators = [], data: csvData }) => {
                         key={tf.value}
                         onClick={() => setActiveTimeframe(tf.value)}
                         style={{
-                            background: activeTimeframe === tf.value ? '#26a69a' : 'transparent',
-                            color: '#DDD',
-                            border: '1px solid #2B2B43',
-                            padding: '5px 10px',
+                            background: activeTimeframe === tf.value ? 'rgba(41, 98, 255, 0.2)' : 'transparent',
+                            color: activeTimeframe === tf.value ? '#2962FF' : '#8b9bb4',
+                            border: '1px solid',
+                            borderColor: activeTimeframe === tf.value ? '#2962FF' : '#1e222d',
+                            padding: '4px 12px',
                             cursor: 'pointer',
-                            borderRadius: '4px',
-                            fontWeight: activeTimeframe === tf.value ? 'bold' : 'normal',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            transition: 'all 0.2s',
                         }}
                     >
                         {tf.label}

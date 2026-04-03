@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Login | BullPeak</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Space+Grotesk:wght@500;700&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container": "#101922",
+                        "on-tertiary-fixed": "#7f1d1d",
+                        "inverse-primary": "#005eb4",
+                        "outline": "#3b4754",
+                        "tertiary-container": "#7f1d1d",
+                        "surface-container-lowest": "#0a0f16",
+                        "on-background": "#f8fafc",
+                        "secondary-container": "#14532d",
+                        "surface-bright": "#161b22",
+                        "on-secondary-fixed": "#064e3b",
+                        "surface-dim": "#0a0f16",
+                        "on-primary-fixed": "#001b3c",
+                        "outline-variant": "#283039",
+                        "primary-container": "#137fec",
+                        "on-primary": "#ffffff",
+                        "primary": "#137fec",
+                        "on-secondary-fixed-variant": "#065f46",
+                        "tertiary-fixed": "#fee2e2",
+                        "inverse-on-surface": "#0a0f16",
+                        "on-primary-fixed-variant": "#004689",
+                        "surface-container-highest": "#283039",
+                        "on-tertiary-fixed-variant": "#991b1b",
+                        "surface-container-high": "#111822",
+                        "error": "#ef4444",
+                        "error-container": "#93000a",
+                        "surface": "#0a0f16",
+                        "surface-container-low": "#0d1117",
+                        "secondary-fixed": "#d1fae5",
+                        "secondary-fixed-dim": "#a7f3d0",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#94a3b8",
+                        "background": "#101922",
+                        "secondary": "#22c55e",
+                        "on-surface": "#e0e2ec",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#137fec",
+                        "tertiary-fixed-dim": "#fecaca",
+                        "on-primary-container": "#ffffff",
+                        "inverse-surface": "#e0e2ec",
+                        "on-tertiary-container": "#f87171",
+                        "tertiary": "#ef4444",
+                        "primary-fixed": "#d5e3ff",
+                        "surface-variant": "#111418",
+                        "on-secondary-container": "#4ade80",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#a8c8ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(10, 15, 22, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .grid-bg {
+            background-image: radial-gradient(circle at 2px 2px, rgba(40, 48, 57, 0.2) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+
+        .candlestick-blur {
+            filter: blur(60px);
+            opacity: 0.3;
+        }
+
+        input:focus {
+            box-shadow: 0 0 0 1px #137fec;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-surface-container-lowest font-body text-on-background min-h-screen flex items-center justify-center relative overflow-hidden">
+    <!-- Background Decorative Elements -->
+    <div class="absolute inset-0 grid-bg pointer-events-none"></div>
+    <div class="absolute -top-24 -left-24 w-96 h-96 bg-primary/10 rounded-full blur-[120px]"></div>
+    <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-secondary/5 rounded-full blur-[120px]"></div>
+    <!-- Synthetic Candlestick Background Art -->
+    <div class="absolute inset-0 candlestick-blur flex items-center justify-around pointer-events-none px-20">
+        <div class="flex flex-col gap-1 items-center">
+            <div class="w-1 h-20 bg-secondary"></div>
+            <div class="w-4 h-40 bg-secondary"></div>
+            <div class="w-1 h-12 bg-secondary"></div>
+        </div>
+        <div class="flex flex-col gap-1 items-center mt-32">
+            <div class="w-1 h-16 bg-tertiary"></div>
+            <div class="w-4 h-32 bg-tertiary"></div>
+            <div class="w-1 h-8 bg-tertiary"></div>
+        </div>
+        <div class="flex flex-col gap-1 items-center -mt-20">
+            <div class="w-1 h-24 bg-secondary"></div>
+            <div class="w-4 h-56 bg-secondary"></div>
+            <div class="w-1 h-16 bg-secondary"></div>
+        </div>
+        <div class="hidden md:flex flex-col gap-1 items-center mt-12">
+            <div class="w-1 h-12 bg-tertiary"></div>
+            <div class="w-4 h-24 bg-tertiary"></div>
+            <div class="w-1 h-32 bg-tertiary"></div>
+        </div>
+    </div>
+    <!-- Main Login Canvas -->
+    <main class="relative z-10 w-full max-w-md px-6 py-12">
+        <div class="glass-card p-8 md:p-10 rounded-xl shadow-2xl">
+            <!-- Branding -->
+            <header class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-primary mb-4">
+                    <span class="material-symbols-outlined text-on-primary text-3xl"
+                        style="font-variation-settings: 'FILL' 1;">insights</span>
+                </div>
+                <h1 class="text-2xl font-extrabold tracking-tighter text-on-background mb-1 font-headline">BullPeak</h1>
+                <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-[0.2em] font-label">
+                    Professional Grade Liquidity</p>
+            </header>
+            <!-- Login Form -->
+            <form action="#" class="space-y-6">
+                <!-- Email Field -->
+                <div class="space-y-2">
+                    <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 font-label"
+                        for="email">Email Address</label>
+                    <div class="relative">
+                        <span
+                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">mail</span>
+                        <input
+                            class="w-full bg-[#111418] border border-outline-variant text-on-surface rounded-lg py-3 pl-10 pr-4 text-sm transition-all focus:border-primary focus:ring-0 placeholder:text-slate-600"
+                            id="email" name="email" placeholder="name@company.com" required="" type="email" />
+                    </div>
+                </div>
+                <!-- Password Field -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-end">
+                        <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-500 font-label"
+                            for="password">Password</label>
+                        <a class="text-[10px] font-bold text-primary hover:text-on-primary-fixed-variant transition-colors uppercase tracking-widest font-label"
+                            href="#">Forgot Password?</a>
+                    </div>
+                    <div class="relative">
+                        <span
+                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg">lock</span>
+                        <input
+                            class="w-full bg-[#111418] border border-outline-variant text-on-surface rounded-lg py-3 pl-10 pr-12 text-sm transition-all focus:border-primary focus:ring-0 placeholder:text-slate-600"
+                            id="password" name="password" placeholder="••••••••" required="" type="password" />
+                        <button
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                            type="button">
+                            <span class="material-symbols-outlined text-lg">visibility</span>
+                        </button>
+                    </div>
+                </div>
+                <!-- Action Button -->
+                <button
+                    class="w-full bg-primary hover:bg-on-primary-fixed-variant text-white font-bold py-3.5 rounded-lg transition-all active:scale-[0.98] shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group"
+                    type="submit">
+                    <span>Sign In</span>
+                    <span
+                        class="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </button>
+            </form>
+            <!-- Divider -->
+            <div class="relative my-8">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-outline-variant"></div>
+                </div>
+                <div class="relative flex justify-center text-xs">
+                    <span
+                        class="px-3 bg-surface-container-low text-slate-500 font-bold uppercase tracking-widest font-label text-[9px]">Or
+                        continue with</span>
+                </div>
+            </div>
+            <!-- Social Logins -->
+            <div class="grid grid-cols-2 gap-4">
+                <button
+                    class="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#111418] border border-outline-variant rounded-lg hover:bg-outline-variant transition-colors group">
+                    <img alt="Google" class="w-4 h-4 grayscale group-hover:grayscale-0 transition-all"
+                        data-alt="Official Google color logo minimalist icon on dark background"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCskafHMFhIpXKMqNrfMjeH30Q0x7kODufO27FVVK9o9xe0jbMlzzG8p4KWGfS-j8EpUd-HgOzZQnSiUVeyB_Q-Wm9c2goJ8xfDZOxuPIXYy5UA9XpFx_vpzMNidG_f8jW22WVz5tcLUoHo_hqpKNrBB_KHYEDHeSRDrcoN-5YqiE-IyznnxRFIeY9ShYGprlRTOY1qYuDVlK-SmTIz3zztRnBBvgpzj7mJcbatq1hYMoQoVCUewhZFt3N706EbMCyWeFlgKysaFIwY" />
+                    <span class="text-xs font-bold text-on-surface">Google</span>
+                </button>
+                <button
+                    class="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#111418] border border-outline-variant rounded-lg hover:bg-outline-variant transition-colors group">
+                    <span class="material-symbols-outlined text-on-surface text-lg">terminal</span>
+                    <span class="text-xs font-bold text-on-surface">GitHub</span>
+                </button>
+            </div>
+            <!-- Signup Footer -->
+            <footer class="mt-10 pt-6 border-t border-outline-variant/30 text-center">
+                <p class="text-slate-500 text-xs font-medium">
+                    Don't have an account?
+                    <a class="text-primary font-bold hover:underline ml-1" href="#">Sign Up</a>
+                </p>
+            </footer>
+        </div>
+        <!-- Compliance / Legal Links -->
+        <div class="mt-8 flex justify-center gap-6 opacity-40 hover:opacity-100 transition-opacity">
+            <a class="text-[9px] font-bold uppercase tracking-widest text-on-surface hover:text-primary transition-colors"
+                href="#">Terms</a>
+            <a class="text-[9px] font-bold uppercase tracking-widest text-on-surface hover:text-primary transition-colors"
+                href="#">Privacy</a>
+            <a class="text-[9px] font-bold uppercase tracking-widest text-on-surface hover:text-primary transition-colors"
+                href="#">Security</a>
+        </div>
+    </main>
+    <!-- Shared Component: TopNavBar (Suppressed for focused login) -->
+    <!-- Shared Component: Footer (Applied as context-specific below) -->
+    <div
+        class="fixed bottom-0 w-full flex justify-between items-center px-8 py-4 border-t border-[#283039] bg-[#0a0f16]">
+        <div class="text-[10px] font-bold uppercase tracking-widest font-inter text-slate-500">
+            © 2024 BullPeak. Professional Grade Liquidity.
+        </div>
+        <div class="flex gap-4">
+            <span class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+                <span class="text-[9px] font-bold text-secondary uppercase tracking-widest">Network Operational</span>
+            </span>
+        </div>
+    </div>
+</body>
+
+</html>

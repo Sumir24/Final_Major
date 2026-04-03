@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import TradeHistory from '../component/TradeHistory';
+import Navbar from '../component/Navbar';
 
 // Simple lightweight Line Chart component for the Equity Curve
 // Since we don't have the full lightweight-charts setup here easily, 
@@ -146,15 +147,15 @@ const Analytics = () => {
     return (
         <div style={{
             fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-            padding: '32px',
             minHeight: '100vh',
             background: 'radial-gradient(circle at 50% 0%, #1c212e 0%, #131722 100%)',
             color: '#D1D4DC',
             display: 'flex',
             flexDirection: 'column',
-            gap: '32px',
             boxSizing: 'border-box'
         }}>
+            <Navbar />
+            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2A2E39', paddingBottom: '16px' }}>
                 <div>
@@ -265,6 +266,7 @@ const Analytics = () => {
                     </div>
                 </>
             )}
+            </div>
         </div>
     );
 };

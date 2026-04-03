@@ -3,6 +3,7 @@ import Chart from '../component/chart';
 import CodePlace from '../component/code_place';
 import IndicatorShow from '../component/indicator_show';
 import { Link } from 'react-router-dom';
+import Navbar from '../component/Navbar';
 
 const IndicatorBuilder = () => {
     const [trades, setTrades] = useState([]);
@@ -11,15 +12,16 @@ const IndicatorBuilder = () => {
     const [currentCode, setCurrentCode] = useState('');
 
     const [visConfigs, setVisConfigs] = useState([
-        { name: "SMA", type: "line", color: "#2962FF", overlay: true },
+        { name: "MA_25", type: "line", color: "#2962FF", overlay: true },
+        { name: "RSI", type: "line", color: "#6200EA", overlay: false },
         { name: "Upper", type: "line", color: "#00E676", overlay: true },
         { name: "Lower", type: "line", color: "#FF5252", overlay: true }
     ]);
 
     // NEW: State for configuring trade signal markers
     const [markerConfigs, setMarkerConfigs] = useState([
-        { name: "Bullish_Reversal", type: "buy", color: "#00E676" },
-        { name: "Bearish_Reversal", type: "sell", color: "#FF5252" }
+        { name: "Buy_Signal", type: "buy", color: "#00E676" },
+        { name: "Sell_Signal", type: "sell", color: "#FF1744" }
     ]);
 
     const initialCode = `# =========================================
@@ -46,6 +48,9 @@ const IndicatorBuilder = () => {
 window = 20
 std_dev = 2.0
 
+# ATR is available automatically! Use it for scaling.
+# Example: df['Momentum'] = (df['Close'].diff(14) / df['ATR']) * 10
+
 df['SMA'] = df['Close'].rolling(window=window).mean()
 df['STD'] = df['Close'].rolling(window=window).std()
 df['Upper'] = df['SMA'] + (df['STD'] * std_dev)
@@ -58,7 +63,17 @@ import numpy as np
 
 # The backend already removes the space from '20250101 170000' -> '20250101170000'
 if 'Datetime' not in df.columns:
-    df['Datetime'] = pd.to_datetime(df['Date'].astype(str), format='%Y%m%d%H%M%S')
+    # CRITICAL: Force UTC so .timestamp() matches frontend chart
+    df['Datetime'] = pd.to_datetime(df['Date'].astype(str), format='%Y%m%d%H%M%S', utc=True)
+
+# --- UNIVERSAL SCALING ENVIRONMENT ---
+# Pre-calculating ATR and TR so they are available globally for oscillators
+_hl = (df['High'] - df['Low'])
+_hc = (df['High'] - df['Close'].shift()).abs()
+_lc = (df['Low'] - df['Close'].shift()).abs()
+_tr = pd.concat([_hl, _hc, _lc], axis=1).max(axis=1)
+df['ATR'] = _tr.rolling(14).mean()
+df['TR']  = _tr
 `;
 
     const generatePostCode = () => {
@@ -69,18 +84,16 @@ if 'Datetime' not in df.columns:
             if (config.name.trim() !== '') {
                 code += `
 if '${config.name}' in df.columns:
+    # Optimized Vectorized Extraction
+    _valid = df[df['${config.name}'].notna()]
     indicators.append({
         "name": "${config.name}",
         "type": "${config.type}",
         "color": "${config.color}",
         "overlay": ${config.overlay ? 'True' : 'False'},
         "data": [
-            {
-                "time": int(float(df['Datetime'].iloc[i].timestamp())), 
-                "value": float(df['${config.name}'].iloc[i])
-            }
-            for i in range(len(df))
-            if not pd.isna(df['${config.name}'].iloc[i])
+            {"time": int(t.timestamp()), "value": float(v)}
+            for t, v in zip(_valid['Datetime'], _valid['${config.name}'])
         ]
     })
 `;
@@ -96,21 +109,56 @@ if '${config.name}' in df.columns:
                 if (config.name.trim() !== '') {
                     code += `
 if '${config.name}' in df.columns:
-    for i in range(len(df)):
-        val = df['${config.name}'].iloc[i]
-        # Only trigger if the signal is 'True' or a positive number (like 1)
-        if pd.notna(val) and (val == True or (isinstance(val, (int, float)) and val > 0)):
-            trades.append({
-                'time': int(float(df['Datetime'].iloc[i].timestamp())),
-                'type': '${config.type}',
-                'color': '${config.color}',
-                'name': '${config.name}',
-                'price': float(df['Close'].iloc[i])
-            })
+    # Optimized Vectorized Marker Extraction
+    # Matches: True/1 or any price value (float/int > 0)
+    _t_valid = df[df['${config.name}'].notna() & ((df['${config.name}'] == True) | (df['${config.name}'] > 0))]
+    for t, p, v in zip(_t_valid['Datetime'], _t_valid['Close'], _t_valid['${config.name}']):
+        trades.append({
+            'time': int(t.timestamp()),
+            'type': '${config.type}',
+            'color': '${config.color}',
+            'name': '${config.name}',
+            'price': float(p)
+        })
 `;
                 }
             });
         }
+
+        // NEW: SMART AUTO-POPULATOR (Zero-Config)
+        // This handles indicators and trades that WERE REGISTERED IN THE CODE, not the UI
+        code += `\n# --- SMART DATA POPULATOR (Zero-Config) ---\n`;
+        code += `
+        # Populate data for indicators registered in the code
+        for ind in indicators:
+            if "data" not in ind and ind["name"] in df.columns:
+                _v_mapped = df[df[ind["name"]].notna()]
+                ind["data"] = [
+                    {"time": int(t.timestamp()), "value": float(v)}
+                    for t, v in zip(_v_mapped['Datetime'], _v_mapped[ind["name"]])
+                ]
+
+        # Populate data for trades registered in the code
+        for trd in trades:
+            if "time" not in trd and "name" in trd and trd["name"] in df.columns:
+                _t_mapped = df[df[trd["name"]].notna() & ((df[trd["name"]] == True) | (df[trd["name"]] > 0))]
+                # Since we found the indices where the signal triggered, we need to create the actual trade objects
+                # We replace the original placeholder entry in the list
+                code_trades = [
+                    {
+                        'time': int(t.timestamp()),
+                        'type': trd.get('type', 'buy'),
+                        'color': trd.get('color', '#00E676'),
+                        'name': trd['name'],
+                        'price': float(p)
+                    }
+                    for t, p in zip(_t_mapped['Datetime'], _t_mapped['Close'])
+                ]
+                # Remove the placeholder and add the real ones
+                trades.remove(trd)
+                trades.extend(code_trades)
+                break # Only handle one signal name at a time to prevent list modification issues in loop
+`;
 
         return code;
     };
@@ -461,8 +509,13 @@ if '${config.name}' in df.columns:
                 }
             `}</style>
 
-            {/* Header */}
+            <Navbar />
+
+            {/* Split from local header to allow Navbar at top */}
             <header className="ib-header">
+                <style>{`
+                    .ib-header { background: #1a1e2a !important; border-bottom: 1px solid #30363d !important; }
+                `}</style>
                 <h1 className="ib-title">
                     <span className="ib-title-dot"></span>
                     Indicator Lab

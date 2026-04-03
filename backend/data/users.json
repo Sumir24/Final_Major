@@ -1,8 +1,20 @@
 [
   {
     "id": "1",
-    "username": "admin",
+    "username": "admin@bullpeak.com",
     "password": "password",
     "role": "admin"
+  },
+  {
+    "id": "2",
+    "username": "test@bullpeak.com",
+    "password": "Password123!",
+    "role": "user"
+  },
+  {
+    "id": "3",
+    "username": "jetski@bullpeak.com",
+    "password": "Password123!",
+    "role": "user"
   }
 ]

@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Chart from '../component/chart';
 import CodePlace from '../component/code_place';
 import TradeHistory from '../component/TradeHistory';
-import { Link, useNavigate } from 'react-router-dom';
+import Navbar from '../component/Navbar';
 
 const Terminal = () => {
-    const navigate = useNavigate();
     const [trades, setTrades] = useState([]);
     const [indicators, setIndicators] = useState([]);
     const [csvData, setCsvData] = useState(null);
@@ -45,6 +44,7 @@ const Terminal = () => {
             fontFamily: "'Inter', sans-serif",
             overflow: 'hidden'
         }}>
+            <Navbar />
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
                 
@@ -63,17 +63,6 @@ const Terminal = () => {
                     <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
                         {/* Left: Chart */}
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #283039' }}>
-                            <div style={{ display: 'flex', borderBottom: '1px solid #283039', backgroundColor: '#0f172a' }}>
-                                <button style={{ padding: '8px 16px', borderBottom: '2px solid #137fec', color: '#137fec', fontSize: '11px', fontWeight: '700', backgroundColor: 'transparent', borderLeft: 'none', borderRight: 'none', borderTop: 'none', cursor: 'pointer' }}>
-                                    Live Chart
-                                </button>
-                                <button
-                                    onClick={() => navigate('/indicator-builder')}
-                                    style={{ padding: '8px 16px', color: '#64748b', fontSize: '11px', fontWeight: '600', backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Indicators
-                                </button>
-                            </div>
                             <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                                 <Chart trades={trades} indicators={indicators} data={csvData} />
                             </div>

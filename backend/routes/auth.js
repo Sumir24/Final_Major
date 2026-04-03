@@ -66,4 +66,56 @@ router.post('/login', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/auth/register
+ * Registers a new user and saves to local data store
+ */
+router.post('/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
+        }
+
+        // Read existing users
+        let users = [];
+        if (fs.existsSync(usersFilePath)) {
+            const data = fs.readFileSync(usersFilePath, 'utf8');
+            users = JSON.parse(data);
+        }
+
+        // Check if user already exists
+        const existingUser = users.find(u => u.username === username);
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        // Create new user object
+        const newUser = {
+            id: (users.length + 1).toString(),
+            username,
+            password, // Storing as plain text per user request
+            role: 'user'
+        };
+
+        // Add to list and save
+        users.push(newUser);
+        fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+
+        res.status(201).json({
+            message: 'User registered successfully',
+            user: {
+                id: newUser.id,
+                username: newUser.username,
+                role: newUser.role
+            }
+        });
+
+    } catch (error) {
+        console.error("Auth Register Error:", error);
+        res.status(500).json({ error: 'Internal server failure during registration' });
+    }
+});
+
 module.exports = router;

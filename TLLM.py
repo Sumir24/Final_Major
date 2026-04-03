@@ -2,6 +2,8 @@ import requests
 import sys
 import re
 import ast
+import pandas as pd
+import numpy as np
 
 # ─────────────────────────────────────────────
 #  CONFIG
@@ -75,12 +77,12 @@ REASONER_SYSTEM = """
 You are a quantitative analyst. Produce a CONCISE mathematical specification.
 Output EXACTLY these 6 sections — keep each section SHORT (2-4 lines max):
 
-0. PRIMARY INDICATOR — name of requested indicator only (e.g. "MACD")
+0. PRIMARY INDICATOR — name of requested indicator (USE USER KEYWORDS e.g. if they say "volatility", name it "Volatility")
 1. INDICATOR MATH   — formulas and window sizes only
 2. SIGNAL LOGIC     — entry/exit crossover conditions (current bar vs prev bar)
 3. TREND FILTER     — EMA(200) bull/bear gate
 4. RISK LEVELS      — ATR multipliers for SL and TP
-5. REGISTRATION     — every series: name | type | overlay True/False
+5. REGISTRATION     - every series: name | type | overlay True/False
 
 OVERLAY RULES (critical):
   overlay: True  → price-pane only: MA, BB bands, EMA, VWAP
@@ -98,20 +100,28 @@ You are a code synthesis engine. Convert the quantitative spec into vectorized P
 [RULE 1] NO loops — no for/while, no .apply(), no .itertuples(), no lambda
 [RULE 2] ONLY: .rolling() .ewm() .diff() .shift() .clip() .where() pd.concat()
 [RULE 3] Pre-imported: pd, np, df (OHLCV DataFrame). Do NOT write any imports.
-[RULE 4] DO NOT write any indicators.append() or trades.append() calls. 
 [RULE 5] Use names like 'RSI', 'SMA_20', 'BB_Upper' etc. as provided in the spec.
 [RULE 6] Output ONLY raw Python code between the markers. NO markdown backticks (```) allowed inside.
-[RULE 7] Start your code with a prominent header `# === PRIMARY INDICATOR: [NAME] ===` immediately before the main indicator's calculation.
+[RULE 7] ORGANIZE YOUR CODE INTO TWO DISTINCT SECTIONS:
+         1. # --- CALCULATIONS --- (for intermediate variables/helpers)
+         2. # === PRIMARY INDICATOR: [NAME] === (main logic + final column + signals)
+[RULE 8] The main indicator column MUST be named after Section 0 (e.g. if Section 0 is "Volatility", then df['Volatility'] = ...). 
+[RULE 9] NEVER assume columns like 'TR', 'HL', or 'Body' exist. If you need them, you MUST calculate them first from 'Open', 'High', 'Low', 'Close', or 'Volume'.
+[RULE 10] UNIVERSAL SCALING: For oscillators (Momentum, ROC, Diff), ALWAYS use Volatility Scaling to ensure whole numbers: 
+          df['Indicator'] = (df['Close'].diff(n) / df['ATR']) * 10
+          This ensures values stay around 10, 30, 50 regardless of the asset price.
 
 ════════════════════════════════════════
  MANDATORY PATTERNS
 ════════════════════════════════════════
 
-# ATR:
-_hl = df['High'] - df['Low']
+# --- CALCULATIONS ---
+# Always calculate True Range (TR) from scratch before ATR:
+_hl = (df['High'] - df['Low'])
 _hc = (df['High'] - df['Close'].shift()).abs()
-_lc = (df['Low']  - df['Close'].shift()).abs()
-df['ATR'] = pd.concat([_hl, _hc, _lc], axis=1).max(axis=1).rolling(14).mean()
+_lc = (df['Low'] - df['Close'].shift()).abs()
+_tr = pd.concat([_hl, _hc, _lc], axis=1).max(axis=1)
+df['ATR'] = _tr.rolling(14).mean()
 
 # === PRIMARY INDICATOR: RSI ===
 _diff = df['Close'].diff()
@@ -128,7 +138,7 @@ df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
 bull_regime = df['Close'] > df['EMA_200']
 bear_regime = df['Close'] < df['EMA_200']
 
-# Signal columns:
+# Signal columns (MUST BE IN THE PRIMARY SECTION):
 df['Buy_Signal']  = np.where(buy_condition,  df['Close'], np.nan)
 df['Sell_Signal'] = np.where(sell_condition, df['Close'], np.nan)
 
@@ -344,7 +354,11 @@ def auto_fix_overlays(code: str) -> str:
 # ─────────────────────────────────────────────
 #  MAIN PIPELINE
 # ─────────────────────────────────────────────
-def generate(user_prompt: str) -> str:
+# ─────────────────────────────────────────────
+#  MAIN PIPELINE
+# ─────────────────────────────────────────────
+def generate(user_prompt: str) -> dict:
+    """Runs the full pipeline. Returns {'code': str, 'spec': str, 'error': str}."""
     print(f"\n{'━'*62}")
     print(f"  PIPELINE START")
     print(f"  Prompt   : {user_prompt}")
@@ -356,7 +370,7 @@ def generate(user_prompt: str) -> str:
     try:
         spec = reason(user_prompt)
     except RuntimeError as e:
-        return f"# Stage 1 failed: {e}"
+        return {"code": "", "spec": "", "error": f"Stage 1 failed: {e}"}
 
     print(f"\n{'─'*62}")
     print("  QUANTITATIVE SPEC (clean, think-blocks removed)")
@@ -375,7 +389,7 @@ def generate(user_prompt: str) -> str:
         except RuntimeError as e:
             print(f"  ✗ {e}")
             if attempt == MAX_RETRIES:
-                return f"# Stage 2 failed: {e}"
+                return {"code": "", "spec": spec, "error": f"Stage 2 failed: {e}"}
             print("  Retrying…")
             continue
 
@@ -386,30 +400,199 @@ def generate(user_prompt: str) -> str:
 
         if ok:
             print(f"  ✓ Valid code produced on attempt {attempt}.\n")
-            return extracted
+            return {"code": extracted, "spec": spec, "error": ""}
 
         print(f"  ✗ Validation failed: {last_error}")
 
-    # All retries exhausted — print the error separately, return the raw code as-is
-    # so it's still copy-pasteable (may have minor issues but better than commented-out)
+    # All retries exhausted
     print(f"\n  ⚠ All {MAX_RETRIES} attempts failed. Returning best code produced.")
-    print(f"  Last error: {last_error}")
-    print(f"  The code below may need a small manual fix.\n")
-    return last_raw
+    return {"code": last_raw, "spec": spec, "error": last_error}
 
 
 # ─────────────────────────────────────────────
-#  DISPLAY + SAVE
+#  PREVIEW VALUES
 # ─────────────────────────────────────────────
-def _display_and_save(code: str, prompt: str) -> None:
-    """Print clean copy-pasteable code and save to a .py file."""
-    import os, time
+def _preview_values(code: str, primary_name: str) -> None:
+    """Generate sample data, run the code, and show a preview of calculations."""
+    print("  [Preview] Generating sample values…")
+    
+    # Create synthetic OHLCV data (100 rows)
+    np.random.seed(42)
+    rows = 100
+    base = 1.1000
+    close = base + np.cumsum(np.random.randn(rows) * 0.001)
+    df = pd.DataFrame({
+        'Open':  close + np.random.randn(rows) * 0.0005,
+        'High':  close + np.abs(np.random.randn(rows) * 0.001),
+        'Low':   close - np.abs(np.random.randn(rows) * 0.001),
+        'Close': close,
+        'Volume': np.random.randint(100, 1000, size=rows)
+    })
 
-    # Extract primary indicator name for display
+    # Run the generated code
+    namespace = {'df': df, 'pd': pd, 'np': np}
+    try:
+        # Standardize 'code' to avoid indentation issues in exec if any
+        exec(code, namespace)
+    except Exception as e:
+        print(f"  ⚠ Preview failed: {e}")
+        return
+
+    # Identify columns to show: Primary, Signals, and any non-standard df columns
+    # We ignore standard OHLCV
+    std_cols = {'Open', 'High', 'Low', 'Close', 'Volume'}
+    all_cols = df.columns.tolist()
+    new_cols = [c for c in all_cols if c not in std_cols]
+    
+    if not new_cols:
+        print("  ⚠ No new columns were added to the DataFrame.")
+        return
+
+    # Highlight the primary indicator and signals if found
+    print("\n" + "─" * 62)
+    print(f"  DATA PREVIEW: {primary_name}")
+    print("─" * 62)
+    
+    # Format the tail for better visibility
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 1000)
+    pd.set_option('display.precision', 5)
+    
+    # Limit to most relevant columns if there are too many
+    # Usually: primary name, SMA_Volatility, signals
+    display_cols = []
+    # Try to find columns that match the primary name
+    primary_slug = primary_name.lower().replace(' ', '_')
+    for c in new_cols:
+        if primary_slug in c.lower() or 'signal' in c.lower() or 'rsi' in c.lower() or 'macd' in c.lower():
+            display_cols.append(c)
+    
+    # If display_cols is small, add other new columns up to 6 total
+    if len(display_cols) < 4:
+        for c in new_cols:
+            if c not in display_cols:
+                display_cols.append(c)
+            if len(display_cols) >= 6: break
+
+    print(df[display_cols].tail(5))
+    print("─" * 62 + "\n")
+
+
+# ─────────────────────────────────────────────
+#  PREVIEW + UI SETUP
+# ─────────────────────────────────────────────
+def _show_ui_setup(spec: str, code: str) -> None:
+    """Print the exact configuration user should use in IndicatorBuilder.js."""
+    print("  [UI] Parsing configuration for IndicatorBuilder.js…")
+    
+    # 1. Identify Main Column
+    primary_match = re.search(r"0\.\s*PRIMARY\s*INDICATOR\s*[:\-\s]+(.*)", spec, re.IGNORECASE)
+    primary_name = primary_match.group(1).strip() if primary_match else "Unknown"
+    
+    print("\n" + "┌" + "─"*60 + "┐")
+    print("│ " + "UI SETUP (IndicatorBuilder.js)".center(58) + " │")
+    print("├" + "─"*60 + "┤")
+    
+    # Find all columns added to df
+    cols = re.findall(r"df\['([^']+)'\]\s*=", code)
+    
+    # Suggest vis configs
+    print("│ " + "VISUALIZATION OUTPUTS:".ljust(58) + " │")
+    for col in cols:
+        if 'signal' in col.lower() or col in ('ATR', 'EMA_200'): continue
+        
+        # Determine overlay from spec or heuristic
+        overlay = "True" if any(kw in col.lower() for kw in ['ma', 'ema', 'sma', 'bb_up', 'bb_lo', 'band', 'vwap']) else "False"
+        type_ = "histogram" if any(kw in col.lower() for kw in ['hist', 'volume', 'rvol']) else "line"
+        
+        print(f"│  • {col.ljust(15)} | {type_.ljust(10)} | Overlay: {overlay.ljust(11)} │")
+    
+    # Suggest markers
+    print("│ " + " ".ljust(58) + " │")
+    print("│ " + "TRADE SIGNALS:".ljust(58) + " │")
+    if 'Buy_Signal' in cols:
+        print("│  • Buy_Signal      | Direction: Buy        | Color: #00E676   │")
+    if 'Sell_Signal' in cols:
+        print("│  • Sell_Signal     | Direction: Sell       | Color: #FF1744   │")
+    
+    print("└" + "─"*60 + "┘")
+
+
+def _preview_values(code: str, primary_name: str) -> None:
+    """Generate sample data, run the code, and show a preview."""
+    print("  [Preview] Generating sample values…")
+    
+    # Create synthetic OHLCV data (100 rows)
+    np.random.seed(42)
+    rows = 100
+    base = 1.1000
+    close = base + np.cumsum(np.random.randn(rows) * 0.001)
+    df = pd.DataFrame({
+        'Open':  close + np.random.randn(rows) * 0.0005,
+        'High':  close + np.abs(np.random.randn(rows) * 0.001),
+        'Low':   close - np.abs(np.random.randn(rows) * 0.001),
+        'Close': close,
+        'Volume': np.random.randint(100, 1000, size=rows)
+    })
+
+    # Run the generated code
+    namespace = {'df': df, 'pd': pd, 'np': np}
+    try:
+        exec(code, namespace)
+    except Exception as e:
+        print(f"  ⚠ Preview failed: {e}")
+        return
+
+    std_cols = {'Open', 'High', 'Low', 'Close', 'Volume'}
+    all_cols = df.columns.tolist()
+    new_cols = [c for c in all_cols if c not in std_cols]
+    
+    if not new_cols:
+        print("  ⚠ No new columns added.")
+        return
+
+    print("\n" + "─" * 62)
+    print(f"  DATA PREVIEW: {primary_name}")
+    print("─" * 62)
+    
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', 1000)
+    pd.set_option('display.precision', 5)
+    
+    display_cols = []
+    primary_slug = primary_name.lower().replace(' ', '_')
+    for c in new_cols:
+        if primary_slug in c.lower() or 'signal' in c.lower() or 'rsi' in c.lower() or 'macd' in c.lower() or c == primary_name:
+            display_cols.append(c)
+    
+    if len(display_cols) < 5:
+        for c in new_cols:
+            if c not in display_cols:
+                display_cols.append(c)
+            if len(display_cols) >= 8: break
+
+    print(df[display_cols].tail(5))
+    print("─" * 62 + "\n")
+
+
+# ─────────────────────────────────────────────
+#  DISPLAY
+# ─────────────────────────────────────────────
+def _display(result: dict, prompt: str) -> None:
+    """Print clean copy-pasteable code and show preview."""
+    code = result.get("code", "")
+    spec = result.get("spec", "")
+    error = result.get("error", "")
+
+    if error and not code:
+        print(f"\n  ✗ Error: {error}")
+        return
+
+    # Extract primary indicator name
     primary_name = "Unknown"
-    match = re.search(r"PRIMARY INDICATOR:\s*(.*)", code, re.IGNORECASE)
+    match = re.search(r"PRIMARY INDICATOR:\s*([^\n\-=]*)", code, re.IGNORECASE)
     if match:
-        primary_name = match.group(1).strip().replace("=", "").strip()
+        primary_name = match.group(1).strip()
 
     print("\n" + "═" * 62)
     print(f"  ✅  GENERATED: {primary_name}")
@@ -417,25 +600,14 @@ def _display_and_save(code: str, prompt: str) -> None:
     print(code)
     print("═" * 62)
 
-    # Save to file — name derived from prompt slug + timestamp
-    slug      = re.sub(r"[^a-z0-9]+", "_", prompt.lower())[:40].strip("_")
-    timestamp = time.strftime("%H%M%S")
-    filename  = f"indicator_{slug}_{timestamp}.py"
-
-    # Write with header comment so file is self-contained
-    header = (
-        f"# Generated by Dual-Model Indicator Builder\n"
-        f"# Prompt      : {prompt}\n"
-        f"# Indicator   : {primary_name}\n"
-        f"# Models      : {REASONER_MODEL} → {CODER_MODEL}\n"
-        f"# Pre-imported: pd, np, df, indicators=[], trades=[]\n\n"
-    )
-    try:
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(header + code + "\n")
-        print(f"\n  💾  Saved to: {os.path.abspath(filename)}\n")
-    except OSError as e:
-        print(f"\n  ⚠ Could not save file: {e}\n")
+    # Show preview of values
+    _preview_values(code, primary_name)
+    
+    # Show UI Setup hints
+    _show_ui_setup(spec, code)
+    
+    if error:
+        print(f"\n  ⚠ Note: Validation had issues: {error}")
 
 
 # ─────────────────────────────────────────────
@@ -463,7 +635,7 @@ def interactive():
             break
 
         result = generate(prompt)
-        _display_and_save(result, prompt)
+        _display(result, prompt)
 
 
 # ─────────────────────────────────────────────
@@ -474,6 +646,6 @@ if __name__ == "__main__":
         prompt = " ".join(sys.argv[1:])
         print(f"Prompt: {prompt}\n")
         result = generate(prompt)
-        _display_and_save(result, prompt)
+        _display(result, prompt)
     else:
         interactive()

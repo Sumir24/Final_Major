@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './component/PrivateRoute';
 
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
 
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
           </Routes>
         </div>
       </Router>

@@ -50,6 +50,29 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const register = async (username, password) => {
+        try {
+            const response = await fetch('http://localhost:5000/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Registration failed');
+            }
+
+            const data = await response.json();
+            return data.user;
+        } catch (error) {
+            console.error("AuthContext Register Error:", error);
+            throw error;
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -62,6 +85,7 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         login,
+        register,
         logout,
         isAuthenticated: !!token,
     };

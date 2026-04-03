@@ -246,7 +246,10 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
         // Initial Load (1m)
         if (uniqueData.length > 0) {
-            console.log("Chart Data Loaded (First 5):", uniqueData.slice(0, 5));
+            console.log("Chart Range (Candles):", {
+                start: new Date(uniqueData[0].time * 1000).toISOString(),
+                end: new Date(uniqueData[uniqueData.length - 1].time * 1000).toISOString()
+            });
             candlestickSeries.setData(uniqueData);
             chart.timeScale().fitContent();
             updateLegend(uniqueData[uniqueData.length - 1]);
@@ -306,6 +309,16 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
         });
         indicatorSeriesRef.current = [];
 
+        if (indicators && indicators.length > 0) {
+            console.log("Indicators to plot:", indicators.map(i => ({ name: i.name, dataCount: i.data?.length, overlay: i.overlay })));
+            if (indicators[0].data && indicators[0].data.length > 0 && m1DataRef.current.length > 0) {
+                 console.log("First Indicator Pnt vs First Candle:", {
+                     ind: new Date(indicators[0].data[0].time * 1000).toISOString(),
+                     cnd: new Date(m1DataRef.current[0].time * 1000).toISOString()
+                 });
+            }
+        }
+
         if (!indicators || indicators.length === 0) {
             chartRef.current.priceScale('right').applyOptions({
                 scaleMargins: { top: 0.1, bottom: 0.1 }
@@ -361,13 +374,6 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
             }
 
             if (series) {
-                // To prevent overlays from squashing candlesticks, disable their effect on auto-scaling
-                if (ind.isOverlay) {
-                    series.applyOptions({
-                        autoscaleInfoProvider: () => null,
-                    });
-                }
-
                 // Ensure data is sorted
                 const sortedData = [...ind.data].sort((a, b) => a.time - b.time);
 

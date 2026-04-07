@@ -4,12 +4,16 @@ import CodePlace from '../component/code_place';
 import IndicatorShow from '../component/indicator_show';
 import { Link } from 'react-router-dom';
 import Navbar from '../component/Navbar';
+import ChatWithAI from '../component/ChatWithAI';
+import './IndicatorBuilder.css';
 
 const IndicatorBuilder = () => {
     const [trades, setTrades] = useState([]);
     const [indicators, setIndicators] = useState([]);
     const [csvData, setCsvData] = useState(null);
     const [currentCode, setCurrentCode] = useState('');
+    const [isChatOpen, setIsChatOpen] = useState(true);
+    const [aiTrigger, setAiTrigger] = useState(null);
 
     const [visConfigs, setVisConfigs] = useState([
         { name: "MA_25", type: "line", color: "#2962FF", overlay: true },
@@ -129,35 +133,35 @@ if '${config.name}' in df.columns:
         // This handles indicators and trades that WERE REGISTERED IN THE CODE, not the UI
         code += `\n# --- SMART DATA POPULATOR (Zero-Config) ---\n`;
         code += `
-        # Populate data for indicators registered in the code
-        for ind in indicators:
-            if "data" not in ind and ind["name"] in df.columns:
-                _v_mapped = df[df[ind["name"]].notna()]
-                ind["data"] = [
-                    {"time": int(t.timestamp()), "value": float(v)}
-                    for t, v in zip(_v_mapped['Datetime'], _v_mapped[ind["name"]])
-                ]
+# Populate data for indicators registered in the code
+for ind in indicators:
+    if "data" not in ind and ind["name"] in df.columns:
+        _v_mapped = df[df[ind["name"]].notna()]
+        ind["data"] = [
+            {"time": int(t.timestamp()), "value": float(v)}
+            for t, v in zip(_v_mapped['Datetime'], _v_mapped[ind["name"]])
+        ]
 
-        # Populate data for trades registered in the code
-        for trd in trades:
-            if "time" not in trd and "name" in trd and trd["name"] in df.columns:
-                _t_mapped = df[df[trd["name"]].notna() & ((df[trd["name"]] == True) | (df[trd["name"]] > 0))]
-                # Since we found the indices where the signal triggered, we need to create the actual trade objects
-                # We replace the original placeholder entry in the list
-                code_trades = [
-                    {
-                        'time': int(t.timestamp()),
-                        'type': trd.get('type', 'buy'),
-                        'color': trd.get('color', '#00E676'),
-                        'name': trd['name'],
-                        'price': float(p)
-                    }
-                    for t, p in zip(_t_mapped['Datetime'], _t_mapped['Close'])
-                ]
-                # Remove the placeholder and add the real ones
-                trades.remove(trd)
-                trades.extend(code_trades)
-                break # Only handle one signal name at a time to prevent list modification issues in loop
+# Populate data for trades registered in the code
+for trd in trades:
+    if "time" not in trd and "name" in trd and trd["name"] in df.columns:
+        _t_mapped = df[df[trd["name"]].notna() & ((df[trd["name"]] == True) | (df[trd["name"]] > 0))]
+        # Since we found the indices where the signal triggered, we need to create the actual trade objects
+        # We replace the original placeholder entry in the list
+        code_trades = [
+            {
+                'time': int(t.timestamp()),
+                'type': trd.get('type', 'buy'),
+                'color': trd.get('color', '#00E676'),
+                'name': trd['name'],
+                'price': float(p)
+            }
+            for t, p in zip(_t_mapped['Datetime'], _t_mapped['Close'])
+        ]
+        # Remove the placeholder and add the real ones
+        trades.remove(trd)
+        trades.extend(code_trades)
+        break # Only handle one signal name at a time to prevent list modification issues in loop
 `;
 
         return code;
@@ -200,6 +204,15 @@ if '${config.name}' in df.columns:
         }
     };
 
+    const handleAIAction = (actionType) => {
+        setIsChatOpen(true);
+        const prompt = actionType === 'explain' 
+            ? `Explain the following python trading logic:\n\n\`\`\`python\n${currentCode}\n\`\`\``
+            : `Refine and optimize this python trading logic, ensuring it uses pandas best practices:\n\n\`\`\`python\n${currentCode}\n\`\`\``;
+        
+        setAiTrigger({ id: Date.now(), text: prompt });
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -213,7 +226,7 @@ if '${config.name}' in df.columns:
         };
         fetchData();
         setCurrentCode(initialCode);
-    }, []);
+    }, [initialCode]);
 
     const addVisConfig = () => {
         setVisConfigs([...visConfigs, { name: "", type: "line", color: "#ffffff", overlay: true }]);
@@ -247,484 +260,234 @@ if '${config.name}' in df.columns:
     };
 
     return (
-        <div className="indicator-builder">
-            <style>{`
-                .indicator-builder {
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                height: 100vh;
-                background-color: #0b0e14;
-                color: #d1d4dc;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-                }
-
-                /* Scrollbar */
-                ::-webkit-scrollbar {
-                    width: 6px;
-                height: 6px;
-                }
-                ::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                ::-webkit-scrollbar-thumb {
-                    background: #2A2E39;
-                border-radius: 4px;
-                }
-                ::-webkit-scrollbar-thumb:hover {
-                    background: #363C4E;
-                }
-
-                /* Header */
-                .ib-header {
-                    display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 14px 24px;
-                background: #131722;
-                border-bottom: 1px solid #2A2E39;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                z-index: 10;
-                }
-                .ib-title {
-                    font-size: 18px;
-                font-weight: 700;
-                color: #fff;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                margin: 0;
-                }
-                .ib-title-dot {
-                    width: 8px;
-                height: 8px;
-                border-radius: 50%;
-                background: #2962FF;
-                box-shadow: 0 0 12px rgba(41, 98, 255, 0.8);
-                }
-                .ib-btn-outline {
-                    padding: 8px 16px;
-                background: transparent;
-                color: #8b9bb4;
-                font-size: 13px;
-                font-weight: 600;
-                text-decoration: none;
-                border: 1px solid #363C4E;
-                border-radius: 6px;
-                transition: all 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                }
-                .ib-btn-outline:hover {
-                    background: #2A2E39;
-                color: #fff;
-                border-color: #434651;
-                }
-
-                /* Layout Workspace */
-                .ib-workspace {
-                    display: flex;
-                    flex: 1;
-                    padding: 12px;
-                    gap: 12px;
-                    overflow: hidden;
-                    background: radial-gradient(circle at 50% 0%, #171b26 0%, #0b0e14 100%);
-                }
-
-                .ib-column-left {
-                    display: flex;
-                    flex-direction: column;
-                    flex: 1.8;
-                    gap: 12px;
-                    min-width: 0;
-                }
-
-                .ib-column-right {
-                    display: flex;
-                    flex-direction: column;
-                    flex: 1.2;
-                    gap: 12px;
-                    min-width: 0;
-                    overflow-y: auto;
-                    padding-right: 4px;
-                }
-
-                .ib-card {
-                    background: rgba(30, 34, 45, 0.6);
-                    backdrop-filter: blur(16px);
-                    border: 1px solid #2A2E39;
-                    border-radius: 12px;
-                    display: flex;
-                    flex-direction: column;
-                    overflow: hidden;
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-                }
-
-                .ib-card-header {
-                    padding: 10px 16px;
-                    background: rgba(20, 24, 34, 0.4);
-                    border-bottom: 1px solid #2A2E39;
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #e0e0e0;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-
-                .ib-card-body {
-                    flex: 1;
-                    overflow-y: auto;
-                    display: flex;
-                    flex-direction: column;
-                    position: relative;
-                }
-
-                /* Buttons */
-                .ib-btn-primary {
-                    padding: 5px 12px;
-                    background: #2962FF;
-                    color: white;
-                    font-size: 11px;
-                    font-weight: 600;
-                    border: none;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 6px;
-                }
-                .ib-btn-primary:hover {
-                    background: #1e53e5;
-                    box-shadow: 0 4px 12px rgba(41, 98, 255, 0.3);
-                }
-
-                .ib-btn-danger {
-                    padding: 6px 10px;
-                    background: rgba(255, 82, 82, 0.1);
-                    color: #FF5252;
-                    border: 1px solid rgba(255, 82, 82, 0.2);
-                    border-radius: 6px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-                .ib-btn-danger:hover {
-                    background: rgba(255, 82, 82, 0.2);
-                    border-color: rgba(255, 82, 82, 0.4);
-                }
-
-                /* Settings Config Row */
-                .ib-config-list {
-                    padding: 12px;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                }
-                .ib-config-row {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                    align-items: flex-end;
-                    background: rgba(20, 24, 34, 0.5);
-                    padding: 12px;
-                    border-radius: 8px;
-                    border: 1px solid rgba(42, 46, 57, 0.6);
-                    transition: all 0.2s;
-                }
-
-                .ib-config-row-compact {
-                    grid-template-columns: 1fr 1fr !important;
-                }
-
-                .ib-config-row:hover {
-                    border-color: #363C4E;
-                    background: rgba(20, 24, 34, 0.8);
-                }
-
-                .ib-input-group {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                }
-                .ib-label {
-                    font-size: 10px;
-                    color: #8b9bb4;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    font-weight: 600;
-                }
-                .ib-input, .ib-select {
-                    width: 100%;
-                    padding: 6px 10px;
-                    border-radius: 6px;
-                    border: 1px solid #363C4E;
-                    background: #131722;
-                    color: #D1D4DC;
-                    font-size: 12px;
-                    transition: all 0.2s;
-                    box-sizing: border-box;
-                    height: 32px;
-                }
-                .ib-input:focus, .ib-select:focus {
-                    outline: none;
-                    border-color: #2962FF;
-                    background: #171b26;
-                }
-                .ib-color-picker {
-                    height: 32px;
-                    width: 100%;
-                    padding: 2px;
-                    background: #131722;
-                    border: 1px solid #363C4E;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    box-sizing: border-box;
-                }
-
-                .ib-empty-state {
-                    color: #8b9bb4;
-                    font-size: 12px;
-                    text-align: center;
-                    padding: 20px;
-                    background: rgba(20, 24, 34, 0.3);
-                    border: 1px dashed #363C4E;
-                    border-radius: 8px;
-                }
-
-                .ib-hint {
-                    margin: 0 12px 12px;
-                    padding: 10px;
-                    background: rgba(41, 98, 255, 0.05);
-                    border-left: 2px solid #2962FF;
-                    border-radius: 0 6px 6px 0;
-                    color: #8b9bb4;
-                    font-size: 11px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-            `}</style>
-
+        <div className="ib-container">
             <Navbar />
 
-            {/* Split from local header to allow Navbar at top */}
-            <header className="ib-header">
-                <style>{`
-                    .ib-header { background: #1a1e2a !important; border-bottom: 1px solid #30363d !important; }
-                `}</style>
-                <h1 className="ib-title">
-                    <span className="ib-title-dot"></span>
-                    Indicator Lab
-                </h1>
-                <Link to="/" className="ib-btn-outline">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-                    Back to Terminal
-                </Link>
-            </header>
-
-            {/* Main Workspace Workspace */}
-            <main className="ib-workspace">
-
-                {/* Left Column: Code Editor (Maximizing Space) */}
-                <div className="ib-column-left">
-                    <div className="ib-card" style={{ flex: 1 }}>
-                        <div className="ib-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2962FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
-                                Algorithm Strategy
-                            </div>
-                        </div>
-                        <div className="ib-card-body" style={{ padding: 0 }}>
-                            <CodePlace
-                                onTradesGenerated={handleSimulationResults}
-                                onCodeChange={setCurrentCode}
-                                initialCode={initialCode}
-                                apiEndpoint="http://localhost:5000/api/indicators/preview"
-                                preCode={preCode}
-                                postCode={postCode}
-                            />
-                        </div>
+            {/* Main Workspace Layout */}
+            <main className="ib-main-layout" style={{ height: 'calc(100vh - 64px)' }}>
+                
+                {/* Left Sidebar: Properties / Configs */}
+                <div className="ib-sidebar-left">
+                    {/* Header Replacements moved here */}
+                    <div className="ib-sidebar-controls" style={{ padding: '16px 16px 0 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <button 
+                            className={`btn-premium btn-ai-toggle ${isChatOpen ? 'active-glow' : ''}`}
+                            onClick={() => setIsChatOpen(!isChatOpen)}
+                            style={{ width: '100%', justifyContent: 'center' }}
+                        >
+                            <span className="material-symbols-outlined">smart_toy</span>
+                            {isChatOpen ? 'Hide AI Assist' : 'AI Assistant'}
+                        </button>
                     </div>
-                </div>
-
-                {/* Right Column: Previews & Settings (Scrollable Side) */}
-                <div className="ib-column-right">
-
-                    {/* Chart Card */}
-                    <div className="ib-card" style={{ minHeight: '400px', flexShrink: 0 }}>
-                        <div className="ib-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5252" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"></path><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"></path></svg>
-                                Preview Chart
-                            </div>
-                        </div>
-                        <div className="ib-card-body" style={{ padding: '8px' }}>
-                            <div style={{ flex: 1, width: '100%', position: 'relative', minHeight: '300px' }}>
-                                <Chart trades={trades} indicators={indicators} data={csvData} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Vis Settings Card */}
-                    <div className="ib-card" style={{ flexShrink: 0 }}>
-                        <div className="ib-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00E676" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
-                                Visualization Outputs
-                            </div>
-                            <button onClick={addVisConfig} className="ib-btn-primary">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                Add
+                    
+                    {/* Visualization Outputs Section */}
+                    <div className="ib-panel-group">
+                        <div className="ib-panel-header">
+                            <h4>
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#00E676' }}>stacked_line_chart</span>
+                                Visualizations
+                            </h4>
+                            <button onClick={addVisConfig} className="ib-btn-mini-add" title="Add Visualization">
+                                <span className="material-symbols-outlined">add</span>
                             </button>
                         </div>
-                        <div className="ib-card-body">
-                            <div className="ib-config-list">
-                                {visConfigs.length === 0 ? (
-                                    <div className="ib-empty-state">No visualizations configured.</div>
-                                ) : (
-                                    visConfigs.map((config, i) => (
-                                        <div key={i} className="ib-config-row">
-                                            <div className="ib-input-group" style={{ gridColumn: 'span 2' }}>
-                                                <label className="ib-label">Column Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={config.name}
-                                                    onChange={(e) => updateVisConfig(i, 'name', e.target.value)}
-                                                    placeholder="e.g. SMA"
-                                                    className="ib-input"
-                                                />
-                                            </div>
-
-                                            <div className="ib-input-group">
+                        <div className="ib-panel-content" style={{ padding: '16px' }}>
+                            {visConfigs.length === 0 ? (
+                                <div className="ib-empty-state">No visualizations configured.</div>
+                            ) : (
+                                visConfigs.map((config, i) => (
+                                    <div key={i} className="ib-config-card animate-fade">
+                                        <div className="ib-form-control">
+                                            <label className="ib-label">Column Name</label>
+                                            <input
+                                                type="text"
+                                                value={config.name}
+                                                onChange={(e) => updateVisConfig(i, 'name', e.target.value)}
+                                                placeholder="e.g. SMA_20"
+                                                className="ib-input-dark"
+                                            />
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                            <div className="ib-form-control">
                                                 <label className="ib-label">Type</label>
                                                 <select
                                                     value={config.type}
                                                     onChange={(e) => updateVisConfig(i, 'type', e.target.value)}
-                                                    className="ib-select"
+                                                    className="ib-input-dark"
                                                 >
                                                     <option value="line">Line</option>
                                                     <option value="histogram">Histogram</option>
                                                 </select>
                                             </div>
-
-                                            <div className="ib-input-group">
+                                            <div className="ib-form-control">
                                                 <label className="ib-label">Position</label>
                                                 <select
                                                     value={config.overlay ? 'true' : 'false'}
                                                     onChange={(e) => updateVisConfig(i, 'overlay', e.target.value === 'true')}
-                                                    className="ib-select"
+                                                    className="ib-input-dark"
                                                 >
                                                     <option value="true">Overlay</option>
                                                     <option value="false">Separate</option>
                                                 </select>
                                             </div>
-
-                                            <div className="ib-input-group">
-                                                <label className="ib-label">Color</label>
-                                                <input
-                                                    type="color"
-                                                    value={config.color}
-                                                    onChange={(e) => updateVisConfig(i, 'color', e.target.value)}
-                                                    className="ib-color-picker"
-                                                />
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                                <button onClick={() => removeVisConfig(i)} className="ib-btn-danger" style={{ width: '100%' }}>
-                                                    Remove
-                                                </button>
-                                            </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                                            <input
+                                                type="color"
+                                                value={config.color}
+                                                onChange={(e) => updateVisConfig(i, 'color', e.target.value)}
+                                                style={{ width: '32px', height: '32px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }}
+                                            />
+                                            <button onClick={() => removeVisConfig(i)} className="ib-btn-icon-danger" title="Remove">
+                                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    {/* Trade Signals Card */}
-                    <div className="ib-card" style={{ flexShrink: 0 }}>
-                        <div className="ib-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5252" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                    {/* Trade Signals Section */}
+                    <div className="ib-panel-group">
+                        <div className="ib-panel-header">
+                            <h4>
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#FF5252' }}>ads_click</span>
                                 Trade Signals
-                            </div>
-                            <button onClick={addMarkerConfig} className="ib-btn-primary">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                Add
+                            </h4>
+                            <button onClick={addMarkerConfig} className="ib-btn-mini-add">
+                                <span className="material-symbols-outlined">add</span>
                             </button>
                         </div>
-                        <div className="ib-card-body">
-                            <div className="ib-config-list">
-                                {markerConfigs.length === 0 ? (
-                                    <div className="ib-empty-state">No signals configured.</div>
-                                ) : (
-                                    markerConfigs.map((config, i) => (
-                                        <div key={i} className="ib-config-row">
-                                            <div className="ib-input-group" style={{ gridColumn: 'span 2' }}>
-                                                <label className="ib-label">Logic Column</label>
-                                                <input
-                                                    type="text"
-                                                    value={config.name}
-                                                    onChange={(e) => updateMarkerConfig(i, 'name', e.target.value)}
-                                                    placeholder="e.g. Bullish_Reversal"
-                                                    className="ib-input"
-                                                />
-                                            </div>
-
-                                            <div className="ib-input-group">
-                                                <label className="ib-label">Direction</label>
-                                                <select
-                                                    value={config.type}
-                                                    onChange={(e) => updateMarkerConfig(i, 'type', e.target.value)}
-                                                    className="ib-select"
-                                                >
-                                                    <option value="buy">Buy</option>
-                                                    <option value="sell">Sell</option>
-                                                </select>
-                                            </div>
-
-                                            <div className="ib-input-group">
-                                                <label className="ib-label">Color</label>
-                                                <input
-                                                    type="color"
-                                                    value={config.color}
-                                                    onChange={(e) => updateMarkerConfig(i, 'color', e.target.value)}
-                                                    className="ib-color-picker"
-                                                />
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'flex-end', gridColumn: 'span 2' }}>
-                                                <button onClick={() => removeMarkerConfig(i)} className="ib-btn-danger" style={{ width: '100%' }}>
-                                                    Remove Signal
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Compiled Outputs Card */}
-                    <div className="ib-card" style={{ flexShrink: 0 }}>
-                        <div className="ib-card-header">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFD600" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                                Compiled Results
-                            </div>
-                        </div>
-                        <div className="ib-card-body" style={{ padding: 0 }}>
-                            <IndicatorShow indicators={indicators} onSaveSetup={handleSaveSetup} />
+                        <div className="ib-panel-content" style={{ padding: '16px' }}>
+                            {markerConfigs.map((config, i) => (
+                                <div key={i} className="ib-config-card animate-fade">
+                                    <div className="ib-form-control">
+                                        <label className="ib-label">Signal Column</label>
+                                        <input
+                                            type="text"
+                                            value={config.name}
+                                            onChange={(e) => updateMarkerConfig(i, 'name', e.target.value)}
+                                            className="ib-input-dark"
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <select
+                                            value={config.type}
+                                            onChange={(e) => updateMarkerConfig(i, 'type', e.target.value)}
+                                            className="ib-input-dark"
+                                        >
+                                            <option value="buy">Buy</option>
+                                            <option value="sell">Sell</option>
+                                        </select>
+                                        <input
+                                            type="color"
+                                            value={config.color}
+                                            onChange={(e) => updateMarkerConfig(i, 'color', e.target.value)}
+                                            className="ib-input-dark"
+                                            style={{ height: '34px', padding: '2px' }}
+                                        />
+                                    </div>
+                                    <button onClick={() => removeMarkerConfig(i)} className="btn-save" style={{ width: '100%', marginTop: '12px', fontSize: '11px', padding: '4px' }}>
+                                        Remove Signal
+                                    </button>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
                 </div>
 
+                {/* Center Workspace: Editor (Top) & Preview (Bottom) */}
+                <div className="ib-workspace-center">
+                    <section className="ib-editor-section">
+                        <CodePlace
+                            onTradesGenerated={handleSimulationResults}
+                            onCodeChange={setCurrentCode}
+                            onAIAction={handleAIAction}
+                            initialCode={initialCode}
+                            apiEndpoint="http://localhost:5000/api/indicators/preview"
+                            preCode={preCode}
+                            postCode={postCode}
+                        />
+                    </section>
+
+                    <section className="ib-preview-section">
+                        <div className="ib-panel-header" style={{ background: '#131722', padding: '8px 16px' }}>
+                            <h4 style={{ fontSize: '10px' }}>Strategy Preview Chart</h4>
+                        </div>
+                        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '12px' }}>
+                           <Chart trades={trades} indicators={indicators} data={csvData} />
+                        </div>
+                    </section>
+                </div>
+
+                {/* Right Sidebar: AI Copilot */}
+                <aside className="ib-sidebar-right">
+                    <ChatWithAI 
+                        isOpen={isChatOpen} 
+                        onClose={() => setIsChatOpen(false)} 
+                        context={{
+                            code: currentCode,
+                            visConfigs: visConfigs,
+                            markerConfigs: markerConfigs,
+                            trigger: aiTrigger?.text
+                        }}
+                    />
+                </aside>
+
             </main>
+
+            {/* Custom Styles for Mini Buttons */}
+            <style>{`
+                .ib-btn-mini-add {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid var(--border-dim);
+                    color: var(--text-secondary);
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .ib-btn-mini-add:hover {
+                    background: var(--accent-blue);
+                    color: white;
+                    border-color: var(--accent-blue);
+                }
+                .ib-btn-icon-danger {
+                    background: transparent;
+                    border: none;
+                    color: rgba(255, 82, 82, 0.5);
+                    cursor: pointer;
+                }
+                .ib-btn-icon-danger:hover {
+                    color: #FF5252;
+                }
+                .ib-title-separator {
+                    height: 20px;
+                    width: 1px;
+                    background: var(--border-dim);
+                    margin: 0 16px;
+                }
+                .ib-page-title {
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #ffffff;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .ib-header-center {
+                    color: var(--text-secondary);
+                    font-size: 11px;
+                    letter-spacing: 0.5px;
+                    text-transform: uppercase;
+                }
+            `}</style>
         </div>
     );
 };

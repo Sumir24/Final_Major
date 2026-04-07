@@ -20,7 +20,7 @@ const Navbar = () => {
             </div>
             
             <div className="nav-links">
-                <NavLink to="/" end className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+                <NavLink to="/terminal" end className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
                     <span className="material-symbols-outlined">terminal</span>
                     <span>Terminal</span>
                 </NavLink>

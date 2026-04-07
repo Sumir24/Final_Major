@@ -70,7 +70,7 @@ const Terminal = () => {
 
                         {/* Right: Code Editor */}
                         <div style={{ width: '450px', display: 'flex', flexDirection: 'column', backgroundColor: '#0d1117' }}>
-                            <CodePlace onTradesGenerated={handleSimulationResults} />
+                            <CodePlace onTradesGenerated={handleSimulationResults} showAICopilot={false} />
                         </div>
                     </div>
 

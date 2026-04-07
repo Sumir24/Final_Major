@@ -4,10 +4,13 @@ import re
 import ast
 import pandas as pd
 import numpy as np
+import json
+import io
+from contextlib import redirect_stdout
 
-# ─────────────────────────────────────────────
+# =============================================
 #  CONFIG
-# ─────────────────────────────────────────────
+# =============================================
 BASE_URL       = "http://127.0.0.1:1234"
 CHAT_ENDPOINT  = f"{BASE_URL}/v1/chat/completions"
 
@@ -22,9 +25,9 @@ REASONER_TIMEOUT = 300   # seconds
 CODER_TIMEOUT    = 480   # seconds — Qwen2.5-14b is a big model, give it room
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  THINK-BLOCK STRIPPING  (robust, multi-pass)
-# ─────────────────────────────────────────────
+# =============================================
 def strip_think(text: str) -> str:
     """
     Remove ALL DeepSeek <think>...</think> blocks.
@@ -70,9 +73,9 @@ def extract_spec(raw: str) -> str:
     return raw.strip()
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  PROMPTS
-# ─────────────────────────────────────────────
+# =============================================
 REASONER_SYSTEM = """
 You are a quantitative analyst. Produce a CONCISE mathematical specification.
 Output EXACTLY these 6 sections — keep each section SHORT (2-4 lines max):
@@ -110,6 +113,14 @@ You are a code synthesis engine. Convert the quantitative spec into vectorized P
 [RULE 10] UNIVERSAL SCALING: For oscillators (Momentum, ROC, Diff), ALWAYS use Volatility Scaling to ensure whole numbers: 
           df['Indicator'] = (df['Close'].diff(n) / df['ATR']) * 10
           This ensures values stay around 10, 30, 50 regardless of the asset price.
+[RULE 11] NEVER use 'EMA_200', 'bull_regime', or 'bear_regime' without explicitly calculating df['EMA_200'] first.
+[RULE 12] USE CLEAN STRINGS: Never include trailing/leading spaces in any column name or dictionary key (e.g. 'Cloud', NOT 'Cloud ').
+[RULE 13] NO SIGNAL BLOAT: Signals (Buy/Sell) MUST be crossovers. 
+           Bad:  df['Buy'] = np.where(close > ma, close, np.nan)  # Too many signals!
+           Good: df['Buy'] = np.where((close > ma) & (close.shift(1) <= ma.shift(1)), close, np.nan)
+[RULE 14] OVERLAY LOGIC: 
+           - overlay: True  if the values are in the same range as the Price (e.g. MA, BB, Cloud, Stop_Loss).
+           - overlay: False if the values are a scale or oscillator (e.g. RSI, MACD, ATR, Momentum).
 
 ════════════════════════════════════════
  MANDATORY PATTERNS
@@ -123,24 +134,26 @@ _lc = (df['Low'] - df['Close'].shift()).abs()
 _tr = pd.concat([_hl, _hc, _lc], axis=1).max(axis=1)
 df['ATR'] = _tr.rolling(14).mean()
 
-# === PRIMARY INDICATOR: RSI ===
-_diff = df['Close'].diff()
-_gain = _diff.clip(lower=0).rolling(14).mean()
-_loss = (-_diff.clip(upper=0)).rolling(14).mean()
-df['RSI'] = 100 - 100 / (1 + _gain / _loss.replace(0, np.nan))
-
-# Crossover:
-cross_up   = (fast > slow) & (fast.shift(1) <= slow.shift(1))
-cross_down = (fast < slow) & (fast.shift(1) >= slow.shift(1))
-
-# Trend filter:
+# Trend Filter & Overlays (Example):
 df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
 bull_regime = df['Close'] > df['EMA_200']
 bear_regime = df['Close'] < df['EMA_200']
 
-# Signal columns (MUST BE IN THE PRIMARY SECTION):
-df['Buy_Signal']  = np.where(buy_condition,  df['Close'], np.nan)
-df['Sell_Signal'] = np.where(sell_condition, df['Close'], np.nan)
+# === PRIMARY INDICATOR: Ichimoku / MA ===
+# [Registration Pattern for Overlays]
+# indicators.append({"name": "EMA_200", "type": "line", "color": "#FF6D00", "overlay": True})
+
+# === PRIMARY INDICATOR: RSI / ATR ===
+# [Registration Pattern for Oscillators]
+# indicators.append({"name": "RSI", "type": "line", "color": "#6200EA", "overlay": False})
+
+# Crossover Pattern for Signals:
+buy_condition  = (df['RSI'] > 30) & (df['RSI'].shift(1) <= 30)
+sell_condition = (df['RSI'] < 70) & (df['RSI'].shift(1) >= 70)
+
+# Signal columns (ONLY on the crossover bar):
+df['Buy_Signal']  = np.where(buy_condition & bull_regime,  df['Close'], np.nan)
+df['Sell_Signal'] = np.where(sell_condition & bear_regime, df['Close'], np.nan)
 
 ════════════════════════════════════════
  COLORS
@@ -159,9 +172,9 @@ Buy        : #00E676   Sell  : #FF1744
 """
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  LOW-LEVEL API CALL
-# ─────────────────────────────────────────────
+# =============================================
 def _call(model: str, messages: list, max_tokens: int, timeout: int) -> str:
     payload = {
         "model":       model,
@@ -192,11 +205,11 @@ def _call(model: str, messages: list, max_tokens: int, timeout: int) -> str:
         raise RuntimeError(f"API error [{model}]: {e}")
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  STAGE 1 — REASONER  (DeepSeek-R1)
-# ─────────────────────────────────────────────
-def reason(user_prompt: str) -> str:
-    print("  [Stage 1] DeepSeek-R1 reasoning…")
+# =============================================
+def reason(user_prompt: str, quiet: bool = False) -> str:
+    if not quiet: print("  [Stage 1] DeepSeek-R1 reasoning...")
     messages = [
         {"role": "system", "content": REASONER_SYSTEM},
         {"role": "user",   "content": f"Indicator request: {user_prompt}"},
@@ -207,13 +220,13 @@ def reason(user_prompt: str) -> str:
     if not spec:
         raise RuntimeError("DeepSeek returned an empty spec after stripping think blocks.")
 
-    print(f"  [Stage 1] ✓ Spec ready ({len(spec)} chars)")
+    if not quiet: print(f"  [Stage 1] OK: Spec ready ({len(spec)} chars)")
     return spec
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  STAGE 2 — CODER  (Qwen2.5-Coder)
-# ─────────────────────────────────────────────
+# =============================================
 def code_from_spec(spec: str, user_prompt: str,
                    prev_code: str = "", error: str = "") -> str:
     if prev_code and error:
@@ -238,9 +251,9 @@ def code_from_spec(spec: str, user_prompt: str,
     return _call(CODER_MODEL, messages, max_tokens=2048, timeout=CODER_TIMEOUT)
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  CODE EXTRACTION
-# ─────────────────────────────────────────────
+# =============================================
 def extract_code(raw: str) -> str:
     raw = strip_think(raw)
 
@@ -268,9 +281,9 @@ def extract_code(raw: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  VALIDATION  (AST-based per-dict)
-# ─────────────────────────────────────────────
+# =============================================
 SUBPANE_KEYWORDS = {
     "rsi", "macd", "atr", "adx", "stoch", "cci",
     "bb_width", "bb_pct", "volume", "vol", "obv",
@@ -327,9 +340,9 @@ def validate(code: str) -> tuple[bool, str]:
     return True, "OK"
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  AUTO-FIX overlay violations (no retry needed)
-# ─────────────────────────────────────────────
+# =============================================
 def auto_fix_overlays(code: str) -> str:
     def _fix(m: re.Match) -> str:
         list_name, dict_str = m.group(1), m.group(2)
@@ -351,153 +364,107 @@ def auto_fix_overlays(code: str) -> str:
     ).sub(_fix, code)
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  MAIN PIPELINE
-# ─────────────────────────────────────────────
-# ─────────────────────────────────────────────
-#  MAIN PIPELINE
-# ─────────────────────────────────────────────
-def generate(user_prompt: str) -> dict:
-    """Runs the full pipeline. Returns {'code': str, 'spec': str, 'error': str}."""
-    print(f"\n{'━'*62}")
-    print(f"  PIPELINE START")
-    print(f"  Prompt   : {user_prompt}")
-    print(f"  Reasoner : {REASONER_MODEL}  (timeout={REASONER_TIMEOUT}s)")
-    print(f"  Coder    : {CODER_MODEL}  (timeout={CODER_TIMEOUT}s)")
-    print(f"{'━'*62}")
+# =============================================
+def generate(user_prompt: str, quiet: bool = False) -> dict:
+    """Runs the full pipeline. Returns {'code': str, 'spec': str, 'error': str, 'terminal_log': str}."""
+    f = io.StringIO()
+    with redirect_stdout(f):
+        print(f"\n{'='*62}")
+        print(f"  PIPELINE START")
+        print(f"  Prompt   : {user_prompt}")
+        print(f"  Reasoner : {REASONER_MODEL}  (timeout={REASONER_TIMEOUT}s)")
+        print(f"  Coder    : {CODER_MODEL}  (timeout={CODER_TIMEOUT}s)")
+        print(f"{'='*62}")
 
-    # Stage 1 — DeepSeek reasons
-    try:
-        spec = reason(user_prompt)
-    except RuntimeError as e:
-        return {"code": "", "spec": "", "error": f"Stage 1 failed: {e}"}
-
-    print(f"\n{'─'*62}")
-    print("  QUANTITATIVE SPEC (clean, think-blocks removed)")
-    print(f"{'─'*62}")
-    for line in spec.splitlines():
-        print(f"  {line}")
-    print(f"{'─'*62}\n")
-
-    # Stage 2 — Qwen codes
-    last_raw, last_error = "", ""
-
-    for attempt in range(1, MAX_RETRIES + 1):
-        print(f"  [Attempt {attempt}/{MAX_RETRIES}] Qwen2.5-Coder writing code…")
+        # Stage 1 — DeepSeek reasons
         try:
-            raw = code_from_spec(spec, user_prompt, last_raw, last_error)
+            # We call reason/code_from_spec which will now print to our StringIO buffer
+            spec = reason(user_prompt, quiet=False)
         except RuntimeError as e:
-            print(f"  ✗ {e}")
-            if attempt == MAX_RETRIES:
-                return {"code": "", "spec": spec, "error": f"Stage 2 failed: {e}"}
-            print("  Retrying…")
-            continue
+            return {"code": "", "spec": "", "error": f"Stage 1 failed: {e}", "terminal_log": f.getvalue()}
 
-        extracted      = extract_code(raw)
-        extracted      = auto_fix_overlays(extracted)   # cheap fix before validate
-        ok, last_error = validate(extracted)
-        last_raw       = extracted
+        print(f"\n{'-'*62}")
+        print("  QUANTITATIVE SPEC (clean, think-blocks removed)")
+        print(f"{'-'*62}")
+        for line in spec.splitlines():
+            print(f"  {line}")
+        print(f"{'-'*62}\n")
 
-        if ok:
-            print(f"  ✓ Valid code produced on attempt {attempt}.\n")
-            return {"code": extracted, "spec": spec, "error": ""}
+        # Stage 2 — Qwen codes
+        last_raw, last_error = "", ""
+        result_dict = {"code": "", "spec": spec, "error": ""}
 
-        print(f"  ✗ Validation failed: {last_error}")
+        for attempt in range(1, MAX_RETRIES + 1):
+            print(f"  [Attempt {attempt}/{MAX_RETRIES}] Qwen2.5-Coder writing code...")
+            try:
+                raw = code_from_spec(spec, user_prompt, last_raw, last_error)
+            except RuntimeError as e:
+                print(f"  [FAIL] {e}")
+                if attempt == MAX_RETRIES:
+                    result_dict["error"] = f"Stage 2 failed: {e}"
+                    break
+                print("  Retrying...")
+                continue
 
-    # All retries exhausted
-    print(f"\n  ⚠ All {MAX_RETRIES} attempts failed. Returning best code produced.")
-    return {"code": last_raw, "spec": spec, "error": last_error}
+            extracted      = extract_code(raw)
+            extracted      = auto_fix_overlays(extracted)
+            ok, last_error = validate(extracted)
+            last_raw       = extracted
+
+            if ok:
+                print(f"  [OK] Valid code produced on attempt {attempt}.\n")
+                result_dict["code"] = extracted
+                break
+
+            print(f"  [FAIL] Validation failed: {last_error}")
+
+        if not result_dict["code"] and not result_dict["error"]:
+             print(f"\n  [WARN] All {MAX_RETRIES} attempts failed. Returning best code produced.")
+             result_dict["code"] = last_raw
+             result_dict["error"] = last_error
+
+        # Diagnostic functions also print to our buffer
+        _display(result_dict, user_prompt, quiet=False)
+
+    # Return the captured text along with the results
+    result_dict["terminal_log"] = f.getvalue()
+    
+    # If not quiet (e.g. running from REPL), print the log back to the real stdout
+    if not quiet:
+        print(result_dict["terminal_log"])
+        
+    return result_dict
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  PREVIEW VALUES
-# ─────────────────────────────────────────────
-def _preview_values(code: str, primary_name: str) -> None:
-    """Generate sample data, run the code, and show a preview of calculations."""
-    print("  [Preview] Generating sample values…")
-    
-    # Create synthetic OHLCV data (100 rows)
-    np.random.seed(42)
-    rows = 100
-    base = 1.1000
-    close = base + np.cumsum(np.random.randn(rows) * 0.001)
-    df = pd.DataFrame({
-        'Open':  close + np.random.randn(rows) * 0.0005,
-        'High':  close + np.abs(np.random.randn(rows) * 0.001),
-        'Low':   close - np.abs(np.random.randn(rows) * 0.001),
-        'Close': close,
-        'Volume': np.random.randint(100, 1000, size=rows)
-    })
-
-    # Run the generated code
-    namespace = {'df': df, 'pd': pd, 'np': np}
-    try:
-        # Standardize 'code' to avoid indentation issues in exec if any
-        exec(code, namespace)
-    except Exception as e:
-        print(f"  ⚠ Preview failed: {e}")
-        return
-
-    # Identify columns to show: Primary, Signals, and any non-standard df columns
-    # We ignore standard OHLCV
-    std_cols = {'Open', 'High', 'Low', 'Close', 'Volume'}
-    all_cols = df.columns.tolist()
-    new_cols = [c for c in all_cols if c not in std_cols]
-    
-    if not new_cols:
-        print("  ⚠ No new columns were added to the DataFrame.")
-        return
-
-    # Highlight the primary indicator and signals if found
-    print("\n" + "─" * 62)
-    print(f"  DATA PREVIEW: {primary_name}")
-    print("─" * 62)
-    
-    # Format the tail for better visibility
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', 1000)
-    pd.set_option('display.precision', 5)
-    
-    # Limit to most relevant columns if there are too many
-    # Usually: primary name, SMA_Volatility, signals
-    display_cols = []
-    # Try to find columns that match the primary name
-    primary_slug = primary_name.lower().replace(' ', '_')
-    for c in new_cols:
-        if primary_slug in c.lower() or 'signal' in c.lower() or 'rsi' in c.lower() or 'macd' in c.lower():
-            display_cols.append(c)
-    
-    # If display_cols is small, add other new columns up to 6 total
-    if len(display_cols) < 4:
-        for c in new_cols:
-            if c not in display_cols:
-                display_cols.append(c)
-            if len(display_cols) >= 6: break
-
+# =============================================
     print(df[display_cols].tail(5))
     print("─" * 62 + "\n")
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  PREVIEW + UI SETUP
-# ─────────────────────────────────────────────
-def _show_ui_setup(spec: str, code: str) -> None:
+# =============================================
+def _show_ui_setup(spec: str, code: str, quiet: bool = False) -> None:
     """Print the exact configuration user should use in IndicatorBuilder.js."""
-    print("  [UI] Parsing configuration for IndicatorBuilder.js…")
+    if not quiet: print("  [UI] Parsing configuration for IndicatorBuilder.js...")
     
     # 1. Identify Main Column
     primary_match = re.search(r"0\.\s*PRIMARY\s*INDICATOR\s*[:\-\s]+(.*)", spec, re.IGNORECASE)
     primary_name = primary_match.group(1).strip() if primary_match else "Unknown"
     
-    print("\n" + "┌" + "─"*60 + "┐")
-    print("│ " + "UI SETUP (IndicatorBuilder.js)".center(58) + " │")
-    print("├" + "─"*60 + "┤")
+    print("\n" + "+" + "-"*60 + "+")
+    print("| " + "UI SETUP (IndicatorBuilder.js)".center(58) + " |")
+    print("+" + "-"*60 + "+")
     
     # Find all columns added to df
     cols = re.findall(r"df\['([^']+)'\]\s*=", code)
     
     # Suggest vis configs
-    print("│ " + "VISUALIZATION OUTPUTS:".ljust(58) + " │")
+    print("| " + "VISUALIZATION OUTPUTS:".ljust(58) + " |")
     for col in cols:
         if 'signal' in col.lower() or col in ('ATR', 'EMA_200'): continue
         
@@ -505,22 +472,22 @@ def _show_ui_setup(spec: str, code: str) -> None:
         overlay = "True" if any(kw in col.lower() for kw in ['ma', 'ema', 'sma', 'bb_up', 'bb_lo', 'band', 'vwap']) else "False"
         type_ = "histogram" if any(kw in col.lower() for kw in ['hist', 'volume', 'rvol']) else "line"
         
-        print(f"│  • {col.ljust(15)} | {type_.ljust(10)} | Overlay: {overlay.ljust(11)} │")
+        print(f"|  * {col.ljust(15)} | {type_.ljust(10)} | Overlay: {overlay.ljust(11)} |")
     
     # Suggest markers
-    print("│ " + " ".ljust(58) + " │")
-    print("│ " + "TRADE SIGNALS:".ljust(58) + " │")
+    print("| " + " ".ljust(58) + " |")
+    print("| " + "TRADE SIGNALS:".ljust(58) + " |")
     if 'Buy_Signal' in cols:
-        print("│  • Buy_Signal      | Direction: Buy        | Color: #00E676   │")
+        print("|  * Buy_Signal      | Direction: Buy        | Color: #00E676   |")
     if 'Sell_Signal' in cols:
-        print("│  • Sell_Signal     | Direction: Sell       | Color: #FF1744   │")
+        print("|  * Sell_Signal     | Direction: Sell       | Color: #FF1744   |")
     
-    print("└" + "─"*60 + "┘")
+    print("+" + "-"*60 + "+")
 
 
-def _preview_values(code: str, primary_name: str) -> None:
+def _preview_values(code: str, primary_name: str, quiet: bool = False) -> None:
     """Generate sample data, run the code, and show a preview."""
-    print("  [Preview] Generating sample values…")
+    if not quiet: print("  [Preview] Generating sample values...")
     
     # Create synthetic OHLCV data (100 rows)
     np.random.seed(42)
@@ -540,7 +507,7 @@ def _preview_values(code: str, primary_name: str) -> None:
     try:
         exec(code, namespace)
     except Exception as e:
-        print(f"  ⚠ Preview failed: {e}")
+        if not quiet: print(f"  [WARN] Preview failed: {e}")
         return
 
     std_cols = {'Open', 'High', 'Low', 'Close', 'Volume'}
@@ -548,12 +515,13 @@ def _preview_values(code: str, primary_name: str) -> None:
     new_cols = [c for c in all_cols if c not in std_cols]
     
     if not new_cols:
-        print("  ⚠ No new columns added.")
+        if not quiet: print("  [WARN] No new columns added.")
         return
 
-    print("\n" + "─" * 62)
-    print(f"  DATA PREVIEW: {primary_name}")
-    print("─" * 62)
+    if not quiet:
+        print("\n" + "-" * 62)
+        print(f"  DATA PREVIEW: {primary_name}")
+        print("-" * 62)
     
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', 1000)
@@ -575,17 +543,17 @@ def _preview_values(code: str, primary_name: str) -> None:
     print("─" * 62 + "\n")
 
 
-# ─────────────────────────────────────────────
+# =============================================
 #  DISPLAY
-# ─────────────────────────────────────────────
-def _display(result: dict, prompt: str) -> None:
+# =============================================
+def _display(result: dict, prompt: str, quiet: bool = False) -> None:
     """Print clean copy-pasteable code and show preview."""
     code = result.get("code", "")
     spec = result.get("spec", "")
     error = result.get("error", "")
 
     if error and not code:
-        print(f"\n  ✗ Error: {error}")
+        if not quiet: print(f"\n  [FAIL] Error: {error}")
         return
 
     # Extract primary indicator name
@@ -594,20 +562,21 @@ def _display(result: dict, prompt: str) -> None:
     if match:
         primary_name = match.group(1).strip()
 
-    print("\n" + "═" * 62)
-    print(f"  ✅  GENERATED: {primary_name}")
-    print("═" * 62)
-    print(code)
-    print("═" * 62)
+    if not quiet:
+        print("\n" + "=" * 62)
+        print(f"  [OK] GENERATED: {primary_name}")
+        print("=" * 62)
+        print(code)
+        print("=" * 62)
 
-    # Show preview of values
-    _preview_values(code, primary_name)
-    
-    # Show UI Setup hints
-    _show_ui_setup(spec, code)
-    
-    if error:
-        print(f"\n  ⚠ Note: Validation had issues: {error}")
+        # Show preview of values
+        _preview_values(code, primary_name, quiet=quiet)
+        
+        # Show UI Setup hints
+        _show_ui_setup(spec, code, quiet=quiet)
+        
+        if error:
+            print(f"\n  [WARN] Note: Validation had issues: {error}")
 
 
 # ─────────────────────────────────────────────
@@ -634,18 +603,31 @@ def interactive():
             print("Bye!")
             break
 
-        result = generate(prompt)
+        result = generate(prompt, quiet=False)
         _display(result, prompt)
 
 
 # ─────────────────────────────────────────────
 #  ENTRY POINT
 # ─────────────────────────────────────────────
-if __name__ == "__main__":
+if __name__ == "__main__": # Backend-ready version
     if len(sys.argv) > 1:
-        prompt = " ".join(sys.argv[1:])
-        print(f"Prompt: {prompt}\n")
-        result = generate(prompt)
-        _display(result, prompt)
+        use_json = "--json" in sys.argv
+        args = [a for a in sys.argv[1:] if a != "--json"]
+        prompt = " ".join(args)
+        if not prompt:
+            if use_json:
+                print(json.dumps({"error": "No prompt provided", "code": "", "spec": ""}))
+            else:
+                print("Error: No prompt provided.")
+            sys.exit(1)
+
+        result = generate(prompt, quiet=use_json)
+
+        if use_json:
+            print(json.dumps(result))
+        else:
+            print(f"Prompt: {prompt}\n")
+            _display(result, prompt, quiet=False)
     else:
         interactive()

@@ -31,14 +31,20 @@ router.post('/login', async (req, res) => {
         const data = fs.readFileSync(usersFilePath, 'utf8');
         const users = JSON.parse(data);
 
+        console.log(`Login attempt for username: "${username}"`);
+        
         // Find user
-        const user = users.find(u => u.username === username);
+        const user = users.find(u => u.username.trim() === username.trim());
+        
         if (!user) {
+            console.log(`User not found: "${username}"`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
         // Verify password
-        const isMatch = (password === user.password); // In production, use bcrypt.compare(password, user.password)
+        const isMatch = (password.trim() === user.password.trim());
+        console.log(`Checking password for "${username}": ${isMatch ? 'Match' : 'No Match'}`);
+        
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid username or password' });
         }

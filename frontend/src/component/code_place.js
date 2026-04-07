@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 
-const CodePlace = ({ onTradesGenerated, onCodeChange, initialCode, apiEndpoint, preCode = '', postCode = '' }) => {
+const CodePlace = ({ onTradesGenerated, onCodeChange, onAIAction, initialCode, apiEndpoint, preCode = '', postCode = '', showAICopilot = true }) => {
     const defaultCode = `# Write your Python code here
 import pandas as pd
 
@@ -251,50 +251,59 @@ print(f"Generated {len(trades)} trades")
     };
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "8px", gap: "12px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0px" }}>
-                <h2 style={{ fontSize: "16px", margin: 0, color: "#8b9bb4" }}>Python Script Algorithm</h2>
-                <div style={{ display: "flex", gap: "10px" }}>
+        <div className="cp-container" style={{ display: "flex", flexDirection: "column", height: "100%", padding: "16px", gap: "16px", background: "#0b0e14" }}>
+            <div className="cp-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span className="material-symbols-outlined" style={{ color: '#8b9bb4', fontSize: '20px' }}>terminal</span>
+                    <h2 style={{ fontSize: "14px", margin: 0, color: "#e0e0e0", fontWeight: 600, letterSpacing: '0.5px' }}>Python Strategy Editor</h2>
+                </div>
+                <div style={{ display: "flex", gap: "12px" }}>
+                    {showAICopilot && (
+                        <div className="cp-ai-actions" style={{ display: "flex", gap: "8px", marginRight: "12px", borderRight: "1px solid #2A2E39", paddingRight: "12px" }}>
+                            <button 
+                                onClick={() => onAIAction && onAIAction('explain')}
+                                className="btn-premium"
+                                style={{ background: 'rgba(110, 118, 129, 0.1)', color: '#8b949e', border: '1px solid #30363d' }}
+                                title="Let AI explain this logic"
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>psychology</span>
+                                Explain
+                            </button>
+                            <button 
+                                onClick={() => onAIAction && onAIAction('refine')}
+                                className="btn-premium"
+                                style={{ background: 'rgba(41, 121, 255, 0.1)', color: '#448aff', border: '1px solid rgba(41, 121, 255, 0.2)' }}
+                                title="Optimize with AI"
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_fix_high</span>
+                                Refine
+                            </button>
+                        </div>
+                    )}
                     {apiEndpoint === "http://localhost:5000/api/indicators/preview" && (
                         <button
                             onClick={saveIndicator}
                             disabled={isRunning}
-                            style={{
-                                padding: "6px 14px",
-                                fontSize: "13px",
-                                backgroundColor: isRunning ? "transparent" : "rgba(76, 175, 80, 0.1)",
-                                color: isRunning ? "#ccc" : "#4CAF50",
-                                border: "1px solid " + (isRunning ? "#555" : "rgba(76, 175, 80, 0.3)"),
-                                borderRadius: "4px",
-                                cursor: isRunning ? "not-allowed" : "pointer",
-                                transition: "all 0.2s"
-                            }}
+                            className="btn-premium btn-save"
                         >
-                            {isRunning ? "Running..." : "Save Indicator"}
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>save</span>
+                            {isRunning ? "Saving..." : "Save Strategy"}
                         </button>
                     )}
                     <button
                         onClick={runOnBackend}
                         disabled={isRunning}
-                        style={{
-                            padding: "6px 14px",
-                            fontSize: "13px",
-                            backgroundColor: isRunning ? "transparent" : "rgba(33, 150, 243, 0.1)",
-                            color: isRunning ? "#ccc" : "#2196F3",
-                            border: "1px solid " + (isRunning ? "#555" : "rgba(33, 150, 243, 0.3)"),
-                            borderRadius: "4px",
-                            cursor: isRunning ? "not-allowed" : "pointer",
-                            transition: "all 0.2s"
-                        }}
+                        className="btn-premium btn-run"
                     >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>play_arrow</span>
                         {isRunning ? "Running..." : "Run Algorithm"}
                     </button>
                 </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1, minHeight: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1px", flex: 1, minHeight: 0, background: '#2A2E39', borderRadius: '12px', overflow: 'hidden', border: '1px solid #2A2E39' }}>
                 {/* Editor Container */}
-                <div style={{ flex: 2, display: "flex", flexDirection: "column", border: "1px solid #2A2E39", borderRadius: "8px", overflow: "hidden" }}>
+                <div style={{ flex: 1.5, display: "flex", flexDirection: "column", background: "#1e1e1e" }}>
                     <Editor
                         height="100%"
                         defaultLanguage="python"
@@ -304,19 +313,47 @@ print(f"Generated {len(trades)} trades")
                         options={{
                             minimap: { enabled: false },
                             fontSize: 14,
+                            lineNumbers: "on",
+                            roundedSelection: false,
                             scrollBeyondLastLine: false,
-                            wordWrap: "on"
+                            readOnly: false,
+                            cursorStyle: "line",
+                            automaticLayout: true,
+                            padding: { top: 16, bottom: 16 }
                         }}
                     />
                 </div>
 
                 {/* Output Container */}
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", border: "1px solid #2A2E39", borderRadius: "8px", backgroundColor: "#1e1e1e", color: "#d4d4d4", overflow: "hidden" }}>
-                    <div style={{ padding: "8px 12px", borderBottom: "1px solid #2A2E39", backgroundColor: "rgba(20, 24, 34, 0.5)", fontSize: "12px", color: "#8b9bb4", fontWeight: "600", textTransform: "uppercase", letterSpacing: "1px" }}>
+                <div style={{ flex: 0.6, display: "flex", flexDirection: "column", background: "#0d0f14" }}>
+                    <div style={{ 
+                        padding: "10px 16px", 
+                        background: "rgba(255,255,255,0.02)", 
+                        borderBottom: "1px solid #2A2E39", 
+                        fontSize: "11px", 
+                        color: "#8b9bb4", 
+                        fontWeight: "600", 
+                        textTransform: "uppercase", 
+                        letterSpacing: "1px",
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>wysiwyg</span>
                         Console Output
                     </div>
-                    <pre ref={outputRef} style={{ padding: "12px", margin: 0, overflow: "auto", flex: 1, fontFamily: "Consolas, 'Courier New', monospace", fontSize: "13px" }}>
-                        {output || "No output yet."}
+                    <pre ref={outputRef} style={{ 
+                        padding: "16px", 
+                        margin: 0, 
+                        overflow: "auto", 
+                        flex: 1, 
+                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", 
+                        fontSize: "12px",
+                        lineHeight: "1.6",
+                        color: "#a9b1d6",
+                        background: "#0b0e14"
+                    }}>
+                        {output || "> Ready to execute..."}
                     </pre>
                 </div>
             </div >

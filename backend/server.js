@@ -51,6 +51,7 @@ app.use('/api/indicators', require('./routes/indicator_routes'));
 app.use('/api/indicator-data', require('./routes/indicator_data'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/chat', require('./routes/chat'));
 
 app.get('/', (req, res) => {
     res.send('Backend is running!');

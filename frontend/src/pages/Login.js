@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -10,11 +10,11 @@ const Login = () => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const { login } = useAuth();
+    const { login, isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || "/";
+    const from = location.state?.from?.pathname || "/terminal";
 
     useEffect(() => {
         // Ensure the light/dark mode root class is correct for BullPeak
@@ -177,7 +177,7 @@ const Login = () => {
                     <footer className="login-signup-footer">
                         <p className="signup-text">
                             Don't have an account? 
-                            <a className="signup-link" href="#signup">Sign Up</a>
+                            <Link className="signup-link" to="/signup">Sign Up</Link>
                         </p>
                     </footer>
                 </div>

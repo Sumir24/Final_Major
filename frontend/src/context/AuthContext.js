@@ -4,13 +4,13 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
+    const [token, setToken] = useState(sessionStorage.getItem('token'));
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         // Initial check for authentication state
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = sessionStorage.getItem('token');
+        const storedUser = sessionStorage.getItem('user');
         
         if (storedToken && storedUser) {
             setToken(storedToken);
@@ -37,8 +37,8 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
             
             // Store results
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('user', JSON.stringify(data.user));
             
             setToken(data.token);
             setUser(data.user);
@@ -74,8 +74,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setToken(null);
         setUser(null);
     };

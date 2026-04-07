@@ -1,0 +1,203 @@
+/* IndicatorBuilder.css - Professional IDE Styling */
+
+:root {
+    --bg-deep: #0b0e14;
+    --bg-surface: #12141d;
+    --bg-card: rgba(30, 34, 45, 0.6);
+    --border-dim: #2A2E39;
+    --accent-blue: #2962FF;
+    --accent-green: #00E676;
+    --accent-red: #FF5252;
+    --text-primary: #e0e0e0;
+    --text-secondary: #8b9bb4;
+    --sidebar-width: 320px;
+}
+
+.ib-container {
+    height: 100vh;
+    background-color: var(--bg-deep);
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* Main Layout Grid */
+.ib-main-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 0%, #171b26 0%, #0b0e14 100%);
+}
+
+/* Properties Sidebar (Left) */
+.ib-sidebar-left {
+    width: var(--sidebar-width);
+    border-right: 1px solid var(--border-dim);
+    display: flex;
+    flex-direction: column;
+    background: rgba(19, 23, 34, 0.4);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+}
+
+.ib-panel-group {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ib-panel-header {
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-dim);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.ib-panel-header h4 {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Central Workspace */
+.ib-workspace-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+    gap: 1px; /* Divider line */
+    background: var(--border-dim);
+}
+
+.ib-editor-section {
+    flex: 1.2;
+    min-height: 300px;
+    background: var(--bg-deep);
+}
+
+.ib-preview-section {
+    flex: 1;
+    min-height: 250px;
+    background: var(--bg-deep);
+    display: flex;
+    flex-direction: column;
+}
+
+/* AI Sidebar Integration */
+.ib-sidebar-right {
+    display: flex;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Cards & Components */
+.ib-card-minimal {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-dim);
+}
+
+.ib-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Buttons */
+.btn-premium {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+}
+
+.btn-run {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.btn-run:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
+}
+
+.btn-save {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border-color: var(--border-dim);
+}
+
+.btn-save:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-ai-toggle {
+    background: rgba(41, 98, 255, 0.1);
+    color: #2962FF;
+    border-color: rgba(41, 98, 255, 0.2);
+}
+
+.active-glow {
+    box-shadow: 0 0 15px rgba(41, 98, 255, 0.3);
+    border-color: #2962FF;
+}
+
+/* Forms */
+.ib-form-control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.ib-input-dark {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.ib-input-dark:focus {
+    border-color: var(--accent-blue);
+}
+
+.ib-config-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade {
+    animation: fadeIn 0.4s ease-out;
+}

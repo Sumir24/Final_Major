@@ -17,7 +17,13 @@ function App() {
         <div className="App">
           <Routes>
             {/* Main Application Routes - Protected */}
-            <Route path="/" element={
+            {/* Public Routes */}
+            <Route path="/" element={<Login />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+
+            {/* Main Application Routes - Protected */}
+            <Route path="/terminal" element={
               <PrivateRoute>
                 <Terminal />
               </PrivateRoute>
@@ -32,10 +38,6 @@ function App() {
                 <Analytics />
               </PrivateRoute>
             } />
-
-            {/* Public Routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
           </Routes>
         </div>
       </Router>

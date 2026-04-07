@@ -18,6 +18,30 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
     const m1DataRef = useRef([]); // Store raw M1 data
 
     const [activeTimeframe, setActiveTimeframe] = useState('1m');
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const indicatorsRef = useRef(indicators);
+    const symbolRef = useRef(symbol);
+
+    useEffect(() => {
+        const handleFSChange = () => {
+            setIsFullScreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFSChange);
+        return () => document.removeEventListener('fullscreenchange', handleFSChange);
+    }, []);
+
+    const toggleFullScreen = () => {
+        if (!document.fullscreenElement) {
+            chartContainerRef.current?.requestFullscreen?.();
+        } else {
+            document.exitFullscreen?.();
+        }
+    };
+
+    useEffect(() => {
+        indicatorsRef.current = indicators;
+        symbolRef.current = symbol;
+    }, [indicators, symbol]);
 
     // Aggregation Function
     const aggregateData = (data, minutes) => {
@@ -129,7 +153,7 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                         pointer-events: none;
                     ">
                         <div style="font-size: 13px; font-weight: 500; color: #8b9bb4; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                            ${symbol}
+                            ${symbolRef.current}
                         </div>
                         <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px;">
                             <span style="font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.5px;">${close}</span>
@@ -154,8 +178,9 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                 }
 
                 let tooltipHtml = '';
-                if (param.seriesData && indicators) {
-                    indicators.forEach((ind, index) => {
+                const currentIndicators = indicatorsRef.current;
+                if (param.seriesData && currentIndicators) {
+                    currentIndicators.forEach((ind, index) => {
                         const series = indicatorSeriesRef.current[index];
                         if (series) {
                             const indData = param.seriesData.get(series);
@@ -201,6 +226,8 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                 chartContainerRef.current?.removeEventListener('mousemove', handleMouseMove);
                 resizeObserver.disconnect();
                 chart.remove();
+                chartRef.current = null;
+                indicatorSeriesRef.current = [];
             };
         }
 
@@ -259,30 +286,39 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
         chart.subscribeCrosshairMove(updateLegend);
 
         // Resize Observer
+        // Resize Observer with stable dimensions check
         const resizeObserver = new ResizeObserver(entries => {
             if (entries.length === 0 || entries[0].target !== chartContainerRef.current) { return; }
             const newRect = entries[0].contentRect;
 
-            // Debounce / Check if update is needed
-            if (newRect.width === 0 || newRect.height === 0) return;
+            if (newRect.width <= 0 || newRect.height <= 0) return;
 
-            // Wrap in requestAnimationFrame
             window.requestAnimationFrame(() => {
                 if (chartRef.current) {
-                    // Only apply if width actually changed (optional optimization, but good practice)
-                    chart.applyOptions({ width: newRect.width, height: newRect.height });
+                    const currentOptions = chartRef.current.options();
+                    // Only apply if dimensions actually changed significantly (avoid jitter)
+                    if (Math.abs(currentOptions.width - newRect.width) > 1 ||
+                        Math.abs(currentOptions.height - newRect.height) > 1) {
+                        chartRef.current.applyOptions({
+                            width: newRect.width,
+                            height: newRect.height
+                        });
+                    }
                 }
             });
         });
 
-        resizeObserver.observe(chartContainerRef.current);
+        const container = chartContainerRef.current;
+        resizeObserver.observe(container);
 
         return () => {
-            chartContainerRef.current?.removeEventListener('mousemove', handleMouseMove);
+            container?.removeEventListener('mousemove', handleMouseMove);
             resizeObserver.disconnect();
             chart.remove();
+            chartRef.current = null;
+            indicatorSeriesRef.current = [];
         };
-    }, [csvData]);
+    }, [csvData, symbol]); // REMOVED indicators here
 
     // Handle Timeframe Change
     useEffect(() => {
@@ -305,17 +341,23 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
         // Cleanup previous indicators
         indicatorSeriesRef.current.forEach(series => {
-            chartRef.current.removeSeries(series);
+            if (series && chartRef.current) {
+                try {
+                    chartRef.current.removeSeries(series);
+                } catch (e) {
+                    console.warn("Failed to remove series during cleanup:", e);
+                }
+            }
         });
         indicatorSeriesRef.current = [];
 
         if (indicators && indicators.length > 0) {
             console.log("Indicators to plot:", indicators.map(i => ({ name: i.name, dataCount: i.data?.length, overlay: i.overlay })));
             if (indicators[0].data && indicators[0].data.length > 0 && m1DataRef.current.length > 0) {
-                 console.log("First Indicator Pnt vs First Candle:", {
-                     ind: new Date(indicators[0].data[0].time * 1000).toISOString(),
-                     cnd: new Date(m1DataRef.current[0].time * 1000).toISOString()
-                 });
+                console.log("First Indicator Pnt vs First Candle:", {
+                    ind: new Date(indicators[0].data[0].time * 1000).toISOString(),
+                    cnd: new Date(m1DataRef.current[0].time * 1000).toISOString()
+                });
             }
         }
 
@@ -347,8 +389,33 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
         processedIndicators.forEach(ind => {
             let targetScaleId;
+            let isCompatibleOverlay = ind.isOverlay;
 
-            if (ind.isOverlay) {
+            if (ind.isOverlay && m1DataRef.current.length > 0) {
+                // Determine if this overlay should share the price scale
+                // Improved Check: Compare average of first 10 points/candles to ensure alignment
+                const indPoints = ind.data.slice(0, 10);
+                const avgInd = indPoints.reduce((s, p) => s + p.value, 0) / indPoints.length;
+
+                // Find corresponding prices in the same time range
+                const startTime = ind.data[0].time;
+                const endTime = indPoints[indPoints.length - 1].time;
+                const pricePoints = m1DataRef.current.filter(c => c.time >= startTime && c.time <= endTime);
+                const avgPrice = pricePoints.length > 0
+                    ? pricePoints.reduce((s, p) => s + p.close, 0) / pricePoints.length
+                    : m1DataRef.current[0].close;
+
+                const ratio = Math.abs(avgInd - avgPrice) / avgPrice;
+
+                if (ratio > 0.4) {
+                    // Not price-compatible (e.g. RSI vs EURUSD)
+                    // Put it on the 'left' scale so it overlays but doesn't shrink the candlesticks
+                    isCompatibleOverlay = false;
+                    targetScaleId = 'left';
+                } else {
+                    targetScaleId = 'right';
+                }
+            } else if (ind.isOverlay) {
                 targetScaleId = 'right';
             } else {
                 targetScaleId = `pane_${paneIndex}`;
@@ -405,13 +472,23 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
             }
         });
 
-        // Adjust main axis so it leaves space at the bottom for panes if there are any
+        // CRITICAL: Synchronize the Left and Right scale margins.
+        // This ensures overlays (even on independent scales) occupy the same space as candles.
+        const mainMargins = {
+            top: 0.1,
+            bottom: totalPanes > 0 ? (totalPanes * 0.2) + 0.05 : 0.1,
+        };
+
+        // Adjust main axis (Right)
         chartRef.current.priceScale('right').applyOptions({
             autoScale: true,
-            scaleMargins: {
-                top: 0.1,
-                bottom: totalPanes > 0 ? (totalPanes * 0.2) + 0.05 : 0.1,
-            }
+            scaleMargins: mainMargins
+        });
+
+        // Sync Left scale (used for independent overlays)
+        chartRef.current.priceScale('left').applyOptions({
+            autoScale: true,
+            scaleMargins: mainMargins
         });
 
     }, [indicators, csvData]);
@@ -443,38 +520,79 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
     }, [trades]);
 
     return (
-        <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            background: '#080808'
+        }}>
             {/* Toolbar */}
             <div style={{
-                padding: '10px',
+                padding: '10px 16px',
                 background: '#080808',
                 borderBottom: '1px solid #1e222d',
                 display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '10px'
             }}>
-                {timeframes.map(tf => (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {timeframes.map(tf => (
+                        <button
+                            key={tf.value}
+                            onClick={() => setActiveTimeframe(tf.value)}
+                            style={{
+                                background: activeTimeframe === tf.value ? 'rgba(41, 98, 255, 0.2)' : 'transparent',
+                                color: activeTimeframe === tf.value ? '#2962FF' : '#8b9bb4',
+                                border: '1px solid',
+                                borderColor: activeTimeframe === tf.value ? '#2962FF' : '#1e222d',
+                                padding: '4px 12px',
+                                cursor: 'pointer',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s',
+                            }}
+                        >
+                            {tf.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <button
-                        key={tf.value}
-                        onClick={() => setActiveTimeframe(tf.value)}
+                        onClick={toggleFullScreen}
                         style={{
-                            background: activeTimeframe === tf.value ? 'rgba(41, 98, 255, 0.2)' : 'transparent',
-                            color: activeTimeframe === tf.value ? '#2962FF' : '#8b9bb4',
-                            border: '1px solid',
-                            borderColor: activeTimeframe === tf.value ? '#2962FF' : '#1e222d',
-                            padding: '4px 12px',
+                            background: 'transparent',
+                            color: isFullScreen ? '#2962FF' : '#8b9bb4',
+                            border: '1px solid #1e222d',
+                            padding: '6px',
                             cursor: 'pointer',
                             borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '600',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             transition: 'all 0.2s',
                         }}
+                        title={isFullScreen ? "Exit Fullscreen" : "Fullscreen View"}
                     >
-                        {tf.label}
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                            {isFullScreen ? 'fullscreen_exit' : 'fullscreen'}
+                        </span>
                     </button>
-                ))}
+                </div>
             </div>
 
-            <div ref={chartContainerRef} style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0 }}>
+            <div ref={chartContainerRef} style={{
+                position: 'relative',
+                width: '100%',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                background: '#080808'
+            }}>
                 <div
                     ref={legendRef}
                     style={{

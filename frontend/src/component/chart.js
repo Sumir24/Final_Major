@@ -214,16 +214,17 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
         chartContainerRef.current.addEventListener('mousemove', handleMouseMove);
 
+        const container = chartContainerRef.current;
         if (!csvData) {
             // Still need to handle resize even if no data
             const resizeObserver = new ResizeObserver(entries => {
-                if (entries.length === 0 || entries[0].target !== chartContainerRef.current) { return; }
+                if (entries.length === 0 || entries[0].target !== container) { return; }
                 const newRect = entries[0].contentRect;
                 chart.applyOptions({ width: newRect.width, height: newRect.height });
             });
-            resizeObserver.observe(chartContainerRef.current);
+            resizeObserver.observe(container);
             return () => {
-                chartContainerRef.current?.removeEventListener('mousemove', handleMouseMove);
+                container?.removeEventListener('mousemove', handleMouseMove);
                 resizeObserver.disconnect();
                 chart.remove();
                 chartRef.current = null;
@@ -308,7 +309,6 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
             });
         });
 
-        const container = chartContainerRef.current;
         resizeObserver.observe(container);
 
         return () => {
@@ -389,8 +389,6 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
         processedIndicators.forEach(ind => {
             let targetScaleId;
-            let isCompatibleOverlay = ind.isOverlay;
-
             if (ind.isOverlay && m1DataRef.current.length > 0) {
                 // Determine if this overlay should share the price scale
                 // Improved Check: Compare average of first 10 points/candles to ensure alignment
@@ -410,7 +408,6 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                 if (ratio > 0.4) {
                     // Not price-compatible (e.g. RSI vs EURUSD)
                     // Put it on the 'left' scale so it overlays but doesn't shrink the candlesticks
-                    isCompatibleOverlay = false;
                     targetScaleId = 'left';
                 } else {
                     targetScaleId = 'right';
@@ -520,11 +517,11 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
     }, [trades]);
 
     return (
-        <div style={{ 
-            position: 'relative', 
-            width: '100%', 
-            height: '100%', 
-            display: 'flex', 
+        <div style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
             flexDirection: 'column',
             background: '#080808'
         }}>

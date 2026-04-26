@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TradeHistory from '../component/TradeHistory';
 import Navbar from '../component/Navbar';
 
@@ -156,116 +156,116 @@ const Analytics = () => {
         }}>
             <Navbar />
             <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2A2E39', paddingBottom: '16px' }}>
-                <div>
-                    <h1 style={{ margin: 0, fontSize: '36px', fontWeight: '800', background: 'linear-gradient(90deg, #ffffff, #8b9bb4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-1px' }}>
-                        Strategy Tear Sheet
-                    </h1>
-                    <p style={{ margin: '8px 0 0 0', color: '#8b9bb4', fontSize: '14px' }}>Quantitative performance analysis and risk metrics.</p>
-                </div>
-                <button
-                    onClick={() => navigate(-1)}
-                    style={{
-                        padding: '10px 20px',
-                        background: 'transparent',
-                        color: '#00E5FF',
-                        border: '1px solid rgba(0, 229, 255, 0.3)',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontWeight: '600',
-                        fontSize: '14px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        transition: 'all 0.3s'
-                    }}
-                    onMouseOver={(e) => { e.target.style.background = 'rgba(0, 229, 255, 0.1)'; e.target.style.boxShadow = '0 0 15px rgba(0, 229, 255, 0.3)'; }}
-                    onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.boxShadow = 'none'; }}
-                >
-                    &larr; Back to Terminal
-                </button>
-            </div>
-
-            {loading ? (
-                <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#8b9bb4' }}>
-                    Crunching the numbers...
-                </div>
-            ) : error ? (
-                <div style={{ padding: '20px', background: 'rgba(255, 82, 82, 0.1)', border: '1px solid #FF5252', borderRadius: '8px', color: '#FF5252' }}>
-                    Error calculating metrics: {error}
-                </div>
-            ) : trades.length === 0 ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px', color: '#8b9bb4' }}>
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <div style={{ fontSize: '20px' }}>No trades to analyze.</div>
-                    <div>Run a simulation in the Terminal first, then click "Analyze Strategy".</div>
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2A2E39', paddingBottom: '16px' }}>
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '36px', fontWeight: '800', background: 'linear-gradient(90deg, #ffffff, #8b9bb4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-1px' }}>
+                            Strategy Tear Sheet
+                        </h1>
+                        <p style={{ margin: '8px 0 0 0', color: '#8b9bb4', fontSize: '14px' }}>Quantitative performance analysis and risk metrics.</p>
+                    </div>
                     <button
-                        onClick={() => navigate('/')}
-                        style={{ padding: '12px 24px', background: '#2962FF', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                        Go to Terminal
+                        onClick={() => navigate(-1)}
+                        style={{
+                            padding: '10px 20px',
+                            background: 'transparent',
+                            color: '#00E5FF',
+                            border: '1px solid rgba(0, 229, 255, 0.3)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            fontSize: '14px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            transition: 'all 0.3s'
+                        }}
+                        onMouseOver={(e) => { e.target.style.background = 'rgba(0, 229, 255, 0.1)'; e.target.style.boxShadow = '0 0 15px rgba(0, 229, 255, 0.3)'; }}
+                        onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.boxShadow = 'none'; }}
+                    >
+                        &larr; Back to Terminal
                     </button>
                 </div>
-            ) : (
-                <>
-                    {/* KPI Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
-                        <MetricCard
-                            title="Net Return"
-                            value={metrics.totalReturn}
-                            unit="%"
-                            isPositive={parseFloat(metrics.totalReturn) >= 0}
-                            tooltip="Total percentage growth of the portfolio."
-                        />
-                        <MetricCard
-                            title="Win Rate"
-                            value={metrics.winRate}
-                            unit="%"
-                            isPositive={parseFloat(metrics.winRate) > 50}
-                            tooltip="Percentage of closed trades that were profitable."
-                        />
-                        <MetricCard
-                            title="Max Drawdown"
-                            value={metrics.maxDrawdown}
-                            unit="%"
-                            isPositive={parseFloat(metrics.maxDrawdown) < 15}
-                            tooltip="The largest peak-to-trough drop in account balance. Lower is safer."
-                        />
-                        <MetricCard
-                            title="Sharpe Ratio"
-                            value={metrics.sharpeRatio}
-                            unit=""
-                            isPositive={parseFloat(metrics.sharpeRatio) > 1}
-                            tooltip="Risk-adjusted return. >1 is good, >2 is excellent."
-                        />
-                        <MetricCard
-                            title="Total Trades"
-                            value={metrics.totalTrades}
-                            unit=""
-                            tooltip="Number of closed round-trip trades executed."
-                        />
-                    </div>
 
-                    {/* Equity Curve Chart */}
-                    <div style={{ background: 'rgba(30, 34, 45, 0.85)', border: '1px solid #2A2E39', borderRadius: '12px', padding: '24px' }}>
-                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#D1D4DC', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Equity Curve <span style={{ color: '#8b9bb4', fontSize: '14px', fontWeight: 'normal' }}>($10,000 Starting Balance)</span>
-                        </div>
-                        <div style={{ width: '100%', height: '350px', background: '#131722', borderRadius: '8px', border: '1px solid #363C4E', padding: '10px' }}>
-                            <EquityCurve data={metrics.equityCurveData} />
-                        </div>
+                {loading ? (
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '24px', color: '#8b9bb4' }}>
+                        Crunching the numbers...
                     </div>
+                ) : error ? (
+                    <div style={{ padding: '20px', background: 'rgba(255, 82, 82, 0.1)', border: '1px solid #FF5252', borderRadius: '8px', color: '#FF5252' }}>
+                        Error calculating metrics: {error}
+                    </div>
+                ) : trades.length === 0 ? (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '20px', color: '#8b9bb4' }}>
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <div style={{ fontSize: '20px' }}>No trades to analyze.</div>
+                        <div>Run a simulation in the Terminal first, then click "Analyze Strategy".</div>
+                        <button
+                            onClick={() => navigate('/')}
+                            style={{ padding: '12px 24px', background: '#2962FF', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                            Go to Terminal
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        {/* KPI Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+                            <MetricCard
+                                title="Net Return"
+                                value={metrics.totalReturn}
+                                unit="%"
+                                isPositive={parseFloat(metrics.totalReturn) >= 0}
+                                tooltip="Total percentage growth of the portfolio."
+                            />
+                            <MetricCard
+                                title="Win Rate"
+                                value={metrics.winRate}
+                                unit="%"
+                                isPositive={parseFloat(metrics.winRate) > 50}
+                                tooltip="Percentage of closed trades that were profitable."
+                            />
+                            <MetricCard
+                                title="Max Drawdown"
+                                value={metrics.maxDrawdown}
+                                unit="%"
+                                isPositive={parseFloat(metrics.maxDrawdown) < 15}
+                                tooltip="The largest peak-to-trough drop in account balance. Lower is safer."
+                            />
+                            <MetricCard
+                                title="Sharpe Ratio"
+                                value={metrics.sharpeRatio}
+                                unit=""
+                                isPositive={parseFloat(metrics.sharpeRatio) > 1}
+                                tooltip="Risk-adjusted return. >1 is good, >2 is excellent."
+                            />
+                            <MetricCard
+                                title="Total Trades"
+                                value={metrics.totalTrades}
+                                unit=""
+                                tooltip="Number of closed round-trip trades executed."
+                            />
+                        </div>
 
-                    {/* Trade Blotter Log */}
-                    <div style={{ flex: 1, minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#D1D4DC', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            Trade Execution Log
+                        {/* Equity Curve Chart */}
+                        <div style={{ background: 'rgba(30, 34, 45, 0.85)', border: '1px solid #2A2E39', borderRadius: '12px', padding: '24px' }}>
+                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#D1D4DC', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Equity Curve <span style={{ color: '#8b9bb4', fontSize: '14px', fontWeight: 'normal' }}>($10,000 Starting Balance)</span>
+                            </div>
+                            <div style={{ width: '100%', height: '350px', background: '#131722', borderRadius: '8px', border: '1px solid #363C4E', padding: '10px' }}>
+                                <EquityCurve data={metrics.equityCurveData} />
+                            </div>
                         </div>
-                        <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid #2A2E39', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
-                            <TradeHistory trades={trades} />
+
+                        {/* Trade Blotter Log */}
+                        <div style={{ flex: 1, minHeight: '300px', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#D1D4DC', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Trade Execution Log
+                            </div>
+                            <div style={{ flex: 1, borderRadius: '12px', overflow: 'hidden', border: '1px solid #2A2E39', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
+                                <TradeHistory trades={trades} />
+                            </div>
                         </div>
-                    </div>
-                </>
-            )}
+                    </>
+                )}
             </div>
         </div>
     );

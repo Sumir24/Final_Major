@@ -1,31 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const ChatWithAI = ({ isOpen, onClose, context }) => {
+const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode = false }) => {
     const [messages, setMessages] = useState([
-        { role: 'assistant', content: 'Hello! I am BullPeak AI. How can I help you with your trading strategy or indicators today?' }
+        { role: 'assistant', content: `Hello! I am BullPeak AI. I am currently in ${initialMode === 'strategy' ? 'Strategy Builder' : 'Indicator Logic'} mode. How can I help you today?` }
     ]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [chatMode, setChatMode] = useState(initialMode); // 'chat' | 'strategy'
     const messagesEndRef = useRef(null);
+
+    // Sync chatMode if initialMode changes and it's locked
+    useEffect(() => {
+        if (lockMode) {
+            setChatMode(initialMode);
+        }
+    }, [initialMode, lockMode]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // External Trigger Sync
-    useEffect(() => {
-        if (context?.trigger) {
-            handleSendMessage(null, context.trigger);
-        }
-    }, [context?.trigger]);
-
-    useEffect(() => {
-        if (isOpen) {
-            scrollToBottom();
-        }
-    }, [messages, isOpen]);
-
-    const handleSendMessage = async (e, forcedContent = null) => {
+    const handleSendMessage = useCallback(async (e, forcedContent = null) => {
         if (e) e.preventDefault();
         const content = forcedContent || inputValue;
         if (!content.trim() || isLoading) return;
@@ -36,12 +31,15 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
         setIsLoading(true);
 
         try {
-            const response = await fetch('/api/chat', {
+            const endpoint = chatMode === 'strategy' ? '/api/strategy' : '/api/chat';
+            console.log(`[AI] Dispatching to ${endpoint} (${chatMode} mode)`);
+            
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
-                    context: context // Pass current code and config to AI
+                    context: context
                 }),
             });
 
@@ -64,7 +62,20 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [inputValue, isLoading, messages, context, chatMode]);
+
+    // External Trigger Sync
+    useEffect(() => {
+        if (context?.trigger) {
+            handleSendMessage(null, context.trigger);
+        }
+    }, [context?.trigger, handleSendMessage]);
+
+    useEffect(() => {
+        if (isOpen) {
+            scrollToBottom();
+        }
+    }, [messages, isOpen]);
 
     if (!isOpen) return null;
 
@@ -74,11 +85,16 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
         return parts.map((part, index) => {
             if (part.startsWith('```')) {
                 const isPython = part.includes('python');
+                const isStrategy = part.toLowerCase().includes('strategy') || content.toLowerCase().includes('strategy code');
                 const code = part.replace(/```(\w+)?\n?/, '').replace(/```$/, '');
+                
+                let headerText = isPython ? 'PYTHON CODE' : 'TERMINAL LOG';
+                if (isStrategy && isPython) headerText = 'STRATEGY ENGINE CODE';
+
                 return (
                     <pre key={index} className="code-block">
                         <div className="code-header">
-                            <span>{isPython ? 'PYTHON CODE' : 'TERMINAL LOG'}</span>
+                            <span>{headerText}</span>
                         </div>
                         <code>{code}</code>
                         <button
@@ -91,8 +107,7 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
                     </pre>
                 );
             }
-            // Handle newlines in plan text
-            return part.split('\n').map((line, i) => <p key={`${index}-${i}`}>{line}</p>);
+            return part.split('\n').map((line, i) => <p key={`${index}-${i}`} style={{margin: '0 0 8px 0'}}>{line}</p>);
         });
     };
 
@@ -102,11 +117,40 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
                 <div className="header-info">
                     <span className="material-symbols-outlined ai-icon">smart_toy</span>
                     <div className="ai-title-group">
-                        <h3>BullPeak AI</h3>
-                        <div className="status-pill">
-                            <span className="status-indicator online"></span>
-                            <span className="status-text">Online</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h3>BullPeak AI</h3>
+                            <div className="status-pill" style={{ margin: 0 }}>
+                                <span className="status-indicator online"></span>
+                                <span className="status-text">Online</span>
+                            </div>
                         </div>
+                        
+                        {/* Mode Switcher Toggle - Hidden if lockMode is true */}
+                        {!lockMode ? (
+                            <div className="mode-toggle-container">
+                                <button 
+                                    onClick={() => setChatMode('chat')}
+                                    className={`mode-btn ${chatMode === 'chat' ? 'active' : ''}`}
+                                >
+                                    <span className="material-symbols-outlined">insights</span>
+                                    Indicator
+                                </button>
+                                <button 
+                                    onClick={() => setChatMode('strategy')}
+                                    className={`mode-btn ${chatMode === 'strategy' ? 'active' : ''}`}
+                                >
+                                    <span className="material-symbols-outlined">strategy</span>
+                                    Strategy
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="mode-locked-label">
+                                <span className="material-symbols-outlined">
+                                    {chatMode === 'strategy' ? 'strategy' : 'insights'}
+                                </span>
+                                {chatMode === 'strategy' ? 'STRATEGY BUILDER' : 'INDICATOR BUILDER'}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <button className="sidebar-action-btn" onClick={onClose} title="Collapse Sidebar">
@@ -478,6 +522,69 @@ const ChatWithAI = ({ isOpen, onClose, context }) => {
                     color: #8b949e;
                     margin-top: 8px;
                     text-align: center;
+                }
+
+                .mode-toggle-container {
+                    display: flex;
+                    gap: 4px;
+                    background: #21262d;
+                    padding: 3px;
+                    border-radius: 8px;
+                    margin-top: 8px;
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                }
+
+                .mode-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: transparent;
+                    border: none;
+                    color: #8b949e;
+                    font-size: 10px;
+                    font-weight: 600;
+                    padding: 4px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+
+                .mode-btn span {
+                    font-size: 14px;
+                }
+
+                .mode-btn.active {
+                    background: #30363d;
+                    color: #58a6ff;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                }
+
+                .mode-btn:hover:not(.active) {
+                    background: rgba(255, 255, 255, 0.03);
+                    color: #f0f6fc;
+                }
+
+                .mode-locked-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    color: #c9d1d9;
+                    font-size: 10px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    margin-top: 6px;
+                    background: rgba(88, 166, 255, 0.1);
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                    border: 1px solid rgba(88, 166, 255, 0.2);
+                    text-transform: uppercase;
+                }
+
+                .mode-locked-label span {
+                    font-size: 14px;
+                    color: #58a6ff;
                 }
             `}</style>
         </div>

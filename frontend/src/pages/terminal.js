@@ -3,11 +3,14 @@ import Chart from '../component/chart';
 import CodePlace from '../component/code_place';
 import TradeHistory from '../component/TradeHistory';
 import Navbar from '../component/Navbar';
+import ChatWithAI from '../component/ChatWithAI';
 
 const Terminal = () => {
     const [trades, setTrades] = useState([]);
     const [indicators, setIndicators] = useState([]);
     const [csvData, setCsvData] = useState(null);
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [currentCode, setCurrentCode] = useState('');
 
     // Handler for simulation results
     const handleSimulationResults = (result) => {
@@ -45,6 +48,48 @@ const Terminal = () => {
             overflow: 'hidden'
         }}>
             <Navbar />
+            
+            {/* Toolbar / Header Extensions */}
+            <div style={{ 
+                height: '48px', 
+                background: '#161b22', 
+                borderBottom: '1px solid #283039',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 20px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="material-symbols-outlined" style={{ color: '#58a6ff', fontSize: '20px' }}>terminal</span>
+                        <span style={{ fontWeight: 600, fontSize: '13px', letterSpacing: '0.5px' }}>TRADING TERMINAL</span>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button 
+                        onClick={() => setIsChatOpen(!isChatOpen)}
+                        style={{
+                            background: isChatOpen ? 'rgba(88, 166, 255, 0.15)' : 'transparent',
+                            color: isChatOpen ? '#58a6ff' : '#8b949e',
+                            border: isChatOpen ? '1px solid #58a6ff' : '1px solid #30363d',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>smart_toy</span>
+                        BullPeak AI Assist
+                    </button>
+                </div>
+            </div>
+
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
                 
@@ -70,7 +115,11 @@ const Terminal = () => {
 
                         {/* Right: Code Editor */}
                         <div style={{ width: '450px', display: 'flex', flexDirection: 'column', backgroundColor: '#0d1117' }}>
-                            <CodePlace onTradesGenerated={handleSimulationResults} showAICopilot={false} />
+                            <CodePlace 
+                                onTradesGenerated={handleSimulationResults} 
+                                onCodeChange={setCurrentCode}
+                                showAICopilot={false} 
+                            />
                         </div>
                     </div>
 
@@ -81,6 +130,19 @@ const Terminal = () => {
                         </div>
                     </div>
                 </main>
+
+                {/* Right Sidebar: AI Assistant */}
+                <aside style={{ height: '100%', display: 'flex' }}>
+                    <ChatWithAI 
+                        isOpen={isChatOpen} 
+                        onClose={() => setIsChatOpen(false)} 
+                        initialMode="strategy"
+                        lockMode={true}
+                        context={{
+                            code: currentCode
+                        }}
+                    />
+                </aside>
             </div>
         </div>
     );

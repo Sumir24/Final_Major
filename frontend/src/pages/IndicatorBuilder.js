@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Chart from '../component/chart';
 import CodePlace from '../component/code_place';
-import IndicatorShow from '../component/indicator_show';
-import { Link } from 'react-router-dom';
 import Navbar from '../component/Navbar';
 import ChatWithAI from '../component/ChatWithAI';
 import './IndicatorBuilder.css';
@@ -178,31 +176,6 @@ for trd in trades:
         }
     };
 
-    const handleSaveSetup = async (name) => {
-        try {
-            const fullCode = `${preCode}\n${currentCode}\n${postCode}`;
-            const response = await fetch('http://localhost:5000/api/indicator-data', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: name,
-                    code: fullCode
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
-
-            alert('Indicator setup saved successfully!');
-        } catch (error) {
-            console.error("Error saving indicator setup:", error);
-            alert('Failed to save indicator setup: ' + error.message);
-        }
-    };
 
     const handleAIAction = (actionType) => {
         setIsChatOpen(true);
@@ -427,6 +400,8 @@ for trd in trades:
                     <ChatWithAI 
                         isOpen={isChatOpen} 
                         onClose={() => setIsChatOpen(false)} 
+                        initialMode="chat"
+                        lockMode={true}
                         context={{
                             code: currentCode,
                             visConfigs: visConfigs,

@@ -18,7 +18,7 @@ const Navbar = () => {
                 <span className="material-symbols-outlined nav-logo-icon">insights</span>
                 <span className="brand-text">BullPeak</span>
             </div>
-            
+
             <div className="nav-links">
                 <NavLink to="/terminal" end className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
                     <span className="material-symbols-outlined">terminal</span>

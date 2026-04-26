@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const TradeHistory = ({ trades }) => {
@@ -233,3 +233,4 @@ const TradeHistory = ({ trades }) => {
 };
 
 export default TradeHistory;
+

@@ -3,9 +3,24 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { spawn } = require('child_process');
 const path = require('path');
+const mongoose = require('mongoose');
 const { initPyodide } = require('./services/pyodideService');
 
 dotenv.config();
+
+// Connect to MongoDB
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/FinalMajor';
+console.log(`Attempting to connect to MongoDB at: ${mongoURI}`);
+
+mongoose.connect(mongoURI, {
+    serverSelectionTimeoutMS: 5000 // Timeout after 5s instead of 30s
+})
+    .then(() => console.log('✅ Connected to MongoDB successfully'))
+    .catch(err => {
+        console.error('❌ MongoDB connection error:');
+        console.error(err.message);
+        console.log('Please ensure your MongoDB service is running (e.g., run "mongod" or start the service).');
+    });
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -53,6 +68,7 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/strategy', require('./routes/strategy'));
+app.use('/api/files', require('./routes/files'));
 
 app.get('/', (req, res) => {
     res.send('Backend is running!');

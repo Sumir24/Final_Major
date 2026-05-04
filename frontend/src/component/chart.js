@@ -143,9 +143,8 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
 
                 legendRef.current.innerHTML = `
                     <div style="
-                        background: rgba(19, 23, 34, 0.7);
-                        backdrop-filter: blur(8px);
-                        border: 1px solid rgba(42, 46, 57, 0.5);
+                        background: rgba(19, 23, 34, 0.95);
+                        border: 1px solid rgba(42, 46, 57, 0.8);
                         padding: 12px 16px;
                         border-radius: 8px;
                         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
@@ -590,6 +589,48 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                 overflow: 'hidden',
                 background: '#080808'
             }}>
+                {/* Integrated Skeleton State */}
+                {!csvData && (
+                    <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 5,
+                        background: '#080808',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '24px',
+                        gap: '20px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <div className="skeleton-pulse" style={{ width: '120px', height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}></div>
+                            <div className="skeleton-pulse" style={{ width: '80px', height: '14px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}></div>
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', gap: '2px' }}>
+                            {[...Array(12)].map((_, i) => (
+                                <div key={i} className="skeleton-pulse" style={{
+                                    flex: 1,
+                                    height: '100%',
+                                    background: 'linear-gradient(to top, rgba(255,255,255,0.02) 0%, transparent 100%)',
+                                    borderLeft: '1px solid rgba(255,255,255,0.03)'
+                                }}></div>
+                            ))}
+                        </div>
+                        <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '12px'
+                        }}>
+                            <div className="animate-spin" style={{ width: '24px', height: '24px', border: '2px solid rgba(0, 219, 233, 0.1)', borderTopColor: '#00dbe9', borderRadius: '50%' }}></div>
+                            <span style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '2px', color: '#00dbe9', textTransform: 'uppercase' }}>Synchronizing Market Data</span>
+                        </div>
+                    </div>
+                )}
+
                 <div
                     ref={legendRef}
                     style={{
@@ -621,8 +662,24 @@ const Chart = ({ trades = [], indicators = [], data: csvData, symbol = "Forex / 
                     }}
                 ></div>
             </div>
+
+            <style>{`
+                .skeleton-pulse {
+                    animation: pulse 2s infinite ease-in-out;
+                }
+                @keyframes pulse {
+                    0%, 100% { opacity: 0.5; }
+                    50% { opacity: 0.2; }
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .animate-spin {
+                    animation: spin 1s linear infinite;
+                }
+            `}</style>
         </div>
     );
 };
 
-export default Chart;
+export default React.memo(Chart);

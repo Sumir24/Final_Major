@@ -232,5 +232,5 @@ const TradeHistory = ({ trades }) => {
     );
 };
 
-export default TradeHistory;
+export default React.memo(TradeHistory);
 

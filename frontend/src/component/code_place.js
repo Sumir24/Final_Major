@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 
-const CodePlace = ({ onTradesGenerated, onCodeChange, onAIAction, initialCode, apiEndpoint, preCode = '', postCode = '', showAICopilot = true }) => {
+const CodePlace = ({ onTradesGenerated, onCodeChange, onAIAction, initialCode, codeProp, apiEndpoint, preCode = '', postCode = '', showAICopilot = true }) => {
     const defaultCode = `# Write your Python code here
 import pandas as pd
 
@@ -45,6 +45,13 @@ print(f"Generated {len(trades)} trades")
 `;
     const [code, setCode] = useState(initialCode || defaultCode);
     const [output, setOutput] = useState("");
+
+    // Sync internal code state with the 'code' prop if it changes externally
+    useEffect(() => {
+        if (codeProp !== undefined && codeProp !== null && codeProp !== code) {
+            setCode(codeProp);
+        }
+    }, [codeProp, code]);
 
     // Notify parent on mount or initialCode change
     useEffect(() => {
@@ -260,7 +267,7 @@ print(f"Generated {len(trades)} trades")
                 <div style={{ display: "flex", gap: "12px" }}>
                     {showAICopilot && (
                         <div className="cp-ai-actions" style={{ display: "flex", gap: "8px", marginRight: "12px", borderRight: "1px solid #2A2E39", paddingRight: "12px" }}>
-                            <button 
+                            <button
                                 onClick={() => onAIAction && onAIAction('explain')}
                                 className="btn-premium"
                                 style={{ background: 'rgba(110, 118, 129, 0.1)', color: '#8b949e', border: '1px solid #30363d' }}
@@ -269,7 +276,7 @@ print(f"Generated {len(trades)} trades")
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>psychology</span>
                                 Explain
                             </button>
-                            <button 
+                            <button
                                 onClick={() => onAIAction && onAIAction('refine')}
                                 className="btn-premium"
                                 style={{ background: 'rgba(41, 121, 255, 0.1)', color: '#448aff', border: '1px solid rgba(41, 121, 255, 0.2)' }}
@@ -326,14 +333,14 @@ print(f"Generated {len(trades)} trades")
 
                 {/* Output Container */}
                 <div style={{ flex: 0.6, display: "flex", flexDirection: "column", background: "#0d0f14" }}>
-                    <div style={{ 
-                        padding: "10px 16px", 
-                        background: "rgba(255,255,255,0.02)", 
-                        borderBottom: "1px solid #2A2E39", 
-                        fontSize: "11px", 
-                        color: "#8b9bb4", 
-                        fontWeight: "600", 
-                        textTransform: "uppercase", 
+                    <div style={{
+                        padding: "10px 16px",
+                        background: "rgba(255,255,255,0.02)",
+                        borderBottom: "1px solid #2A2E39",
+                        fontSize: "11px",
+                        color: "#8b9bb4",
+                        fontWeight: "600",
+                        textTransform: "uppercase",
                         letterSpacing: "1px",
                         display: 'flex',
                         alignItems: 'center',
@@ -342,12 +349,12 @@ print(f"Generated {len(trades)} trades")
                         <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>wysiwyg</span>
                         Console Output
                     </div>
-                    <pre ref={outputRef} style={{ 
-                        padding: "16px", 
-                        margin: 0, 
-                        overflow: "auto", 
-                        flex: 1, 
-                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace", 
+                    <pre ref={outputRef} style={{
+                        padding: "16px",
+                        margin: 0,
+                        overflow: "auto",
+                        flex: 1,
+                        fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
                         fontSize: "12px",
                         lineHeight: "1.6",
                         color: "#a9b1d6",
@@ -361,4 +368,4 @@ print(f"Generated {len(trades)} trades")
     );
 };
 
-export default CodePlace;
+export default React.memo(CodePlace);

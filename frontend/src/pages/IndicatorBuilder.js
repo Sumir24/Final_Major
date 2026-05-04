@@ -179,10 +179,10 @@ for trd in trades:
 
     const handleAIAction = (actionType) => {
         setIsChatOpen(true);
-        const prompt = actionType === 'explain' 
+        const prompt = actionType === 'explain'
             ? `Explain the following python trading logic:\n\n\`\`\`python\n${currentCode}\n\`\`\``
             : `Refine and optimize this python trading logic, ensuring it uses pandas best practices:\n\n\`\`\`python\n${currentCode}\n\`\`\``;
-        
+
         setAiTrigger({ id: Date.now(), text: prompt });
     };
 
@@ -236,182 +236,201 @@ for trd in trades:
         <div className="ib-container">
             <Navbar />
 
-            {/* Main Workspace Layout */}
-            <main className="ib-main-layout" style={{ height: 'calc(100vh - 64px)' }}>
-                
-                {/* Left Sidebar: Properties / Configs */}
-                <div className="ib-sidebar-left">
-                    {/* Header Replacements moved here */}
-                    <div className="ib-sidebar-controls" style={{ padding: '16px 16px 0 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <button 
-                            className={`btn-premium btn-ai-toggle ${isChatOpen ? 'active-glow' : ''}`}
-                            onClick={() => setIsChatOpen(!isChatOpen)}
-                            style={{ width: '100%', justifyContent: 'center' }}
-                        >
-                            <span className="material-symbols-outlined">smart_toy</span>
-                            {isChatOpen ? 'Hide AI Assist' : 'AI Assistant'}
-                        </button>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'auto', overflowY: 'hidden' }}>
+                {/* Header Toolbar */}
+                <div style={{
+                    height: '48px',
+                    background: '#161b22',
+                    borderBottom: '1px solid #283039',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 20px',
+                    justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span className="material-symbols-outlined" style={{ color: '#00E676', fontSize: '20px' }}>query_stats</span>
+                        <span style={{ fontWeight: 600, fontSize: '13px', letterSpacing: '1px', textTransform: 'uppercase' }}>Strategy Logic Builder</span>
                     </div>
-                    
-                    {/* Visualization Outputs Section */}
-                    <div className="ib-panel-group">
-                        <div className="ib-panel-header">
-                            <h4>
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#00E676' }}>stacked_line_chart</span>
-                                Visualizations
-                            </h4>
-                            <button onClick={addVisConfig} className="ib-btn-mini-add" title="Add Visualization">
-                                <span className="material-symbols-outlined">add</span>
+                </div>
+
+                {/* Main Workspace Layout */}
+                <main className="ib-main-layout" style={{ flex: 1 }}>
+                    {/* Left Sidebar: Properties / Configs */}
+                    <div className="ib-sidebar-left">
+                        {/* Header Replacements moved here */}
+                        <div className="ib-sidebar-controls" style={{ padding: '16px 16px 0 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <button
+                                className={`btn-premium btn-ai-toggle ${isChatOpen ? 'active-glow' : ''}`}
+                                onClick={() => setIsChatOpen(!isChatOpen)}
+                                style={{ width: '100%', justifyContent: 'center' }}
+                            >
+                                <span className="material-symbols-outlined">smart_toy</span>
+                                {isChatOpen ? 'Hide AI Assist' : 'AI Assistant'}
                             </button>
                         </div>
-                        <div className="ib-panel-content" style={{ padding: '16px' }}>
-                            {visConfigs.length === 0 ? (
-                                <div className="ib-empty-state">No visualizations configured.</div>
-                            ) : (
-                                visConfigs.map((config, i) => (
+
+                        {/* Visualization Outputs Section */}
+                        <div className="ib-panel-group">
+                            <div className="ib-panel-header">
+                                <h4>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#00E676' }}>stacked_line_chart</span>
+                                    Visualizations
+                                </h4>
+                                <button onClick={addVisConfig} className="ib-btn-mini-add" title="Add Visualization">
+                                    <span className="material-symbols-outlined">add</span>
+                                </button>
+                            </div>
+                            <div className="ib-panel-content" style={{ padding: '16px' }}>
+                                {visConfigs.length === 0 ? (
+                                    <div className="ib-empty-state">No visualizations configured.</div>
+                                ) : (
+                                    visConfigs.map((config, i) => (
+                                        <div key={i} className="ib-config-card animate-fade">
+                                            <div className="ib-form-control">
+                                                <label className="ib-label">Column Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={config.name}
+                                                    onChange={(e) => updateVisConfig(i, 'name', e.target.value)}
+                                                    placeholder="e.g. SMA_20"
+                                                    className="ib-input-dark"
+                                                />
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                                <div className="ib-form-control">
+                                                    <label className="ib-label">Type</label>
+                                                    <select
+                                                        value={config.type}
+                                                        onChange={(e) => updateVisConfig(i, 'type', e.target.value)}
+                                                        className="ib-input-dark"
+                                                    >
+                                                        <option value="line">Line</option>
+                                                        <option value="histogram">Histogram</option>
+                                                    </select>
+                                                </div>
+                                                <div className="ib-form-control">
+                                                    <label className="ib-label">Position</label>
+                                                    <select
+                                                        value={config.overlay ? 'true' : 'false'}
+                                                        onChange={(e) => updateVisConfig(i, 'overlay', e.target.value === 'true')}
+                                                        className="ib-input-dark"
+                                                    >
+                                                        <option value="true">Overlay</option>
+                                                        <option value="false">Separate</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                                                <input
+                                                    type="color"
+                                                    value={config.color}
+                                                    onChange={(e) => updateVisConfig(i, 'color', e.target.value)}
+                                                    style={{ width: '32px', height: '32px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }}
+                                                />
+                                                <button onClick={() => removeVisConfig(i)} className="ib-btn-icon-danger" title="Remove">
+                                                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Trade Signals Section */}
+                        <div className="ib-panel-group">
+                            <div className="ib-panel-header">
+                                <h4>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#FF5252' }}>ads_click</span>
+                                    Trade Signals
+                                </h4>
+                                <button onClick={addMarkerConfig} className="ib-btn-mini-add">
+                                    <span className="material-symbols-outlined">add</span>
+                                </button>
+                            </div>
+                            <div className="ib-panel-content" style={{ padding: '16px' }}>
+                                {markerConfigs.map((config, i) => (
                                     <div key={i} className="ib-config-card animate-fade">
                                         <div className="ib-form-control">
-                                            <label className="ib-label">Column Name</label>
+                                            <label className="ib-label">Signal Column</label>
                                             <input
                                                 type="text"
                                                 value={config.name}
-                                                onChange={(e) => updateVisConfig(i, 'name', e.target.value)}
-                                                placeholder="e.g. SMA_20"
+                                                onChange={(e) => updateMarkerConfig(i, 'name', e.target.value)}
                                                 className="ib-input-dark"
                                             />
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                            <div className="ib-form-control">
-                                                <label className="ib-label">Type</label>
-                                                <select
-                                                    value={config.type}
-                                                    onChange={(e) => updateVisConfig(i, 'type', e.target.value)}
-                                                    className="ib-input-dark"
-                                                >
-                                                    <option value="line">Line</option>
-                                                    <option value="histogram">Histogram</option>
-                                                </select>
-                                            </div>
-                                            <div className="ib-form-control">
-                                                <label className="ib-label">Position</label>
-                                                <select
-                                                    value={config.overlay ? 'true' : 'false'}
-                                                    onChange={(e) => updateVisConfig(i, 'overlay', e.target.value === 'true')}
-                                                    className="ib-input-dark"
-                                                >
-                                                    <option value="true">Overlay</option>
-                                                    <option value="false">Separate</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px' }}>
+                                            <select
+                                                value={config.type}
+                                                onChange={(e) => updateMarkerConfig(i, 'type', e.target.value)}
+                                                className="ib-input-dark"
+                                            >
+                                                <option value="buy">Buy</option>
+                                                <option value="sell">Sell</option>
+                                            </select>
                                             <input
                                                 type="color"
                                                 value={config.color}
-                                                onChange={(e) => updateVisConfig(i, 'color', e.target.value)}
-                                                style={{ width: '32px', height: '32px', padding: 0, border: 'none', background: 'none', cursor: 'pointer' }}
+                                                onChange={(e) => updateMarkerConfig(i, 'color', e.target.value)}
+                                                className="ib-input-dark"
+                                                style={{ height: '34px', padding: '2px' }}
                                             />
-                                            <button onClick={() => removeVisConfig(i)} className="ib-btn-icon-danger" title="Remove">
-                                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
-                                            </button>
                                         </div>
+                                        <button onClick={() => removeMarkerConfig(i)} className="btn-save" style={{ width: '100%', marginTop: '12px', fontSize: '11px', padding: '4px' }}>
+                                            Remove Signal
+                                        </button>
                                     </div>
-                                ))
-                            )}
+                                ))}
+                            </div>
                         </div>
+
                     </div>
 
-                    {/* Trade Signals Section */}
-                    <div className="ib-panel-group">
-                        <div className="ib-panel-header">
-                            <h4>
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#FF5252' }}>ads_click</span>
-                                Trade Signals
-                            </h4>
-                            <button onClick={addMarkerConfig} className="ib-btn-mini-add">
-                                <span className="material-symbols-outlined">add</span>
-                            </button>
-                        </div>
-                        <div className="ib-panel-content" style={{ padding: '16px' }}>
-                            {markerConfigs.map((config, i) => (
-                                <div key={i} className="ib-config-card animate-fade">
-                                    <div className="ib-form-control">
-                                        <label className="ib-label">Signal Column</label>
-                                        <input
-                                            type="text"
-                                            value={config.name}
-                                            onChange={(e) => updateMarkerConfig(i, 'name', e.target.value)}
-                                            className="ib-input-dark"
-                                        />
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <select
-                                            value={config.type}
-                                            onChange={(e) => updateMarkerConfig(i, 'type', e.target.value)}
-                                            className="ib-input-dark"
-                                        >
-                                            <option value="buy">Buy</option>
-                                            <option value="sell">Sell</option>
-                                        </select>
-                                        <input
-                                            type="color"
-                                            value={config.color}
-                                            onChange={(e) => updateMarkerConfig(i, 'color', e.target.value)}
-                                            className="ib-input-dark"
-                                            style={{ height: '34px', padding: '2px' }}
-                                        />
-                                    </div>
-                                    <button onClick={() => removeMarkerConfig(i)} className="btn-save" style={{ width: '100%', marginTop: '12px', fontSize: '11px', padding: '4px' }}>
-                                        Remove Signal
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                    {/* Center Workspace: Editor (Top) & Preview (Bottom) */}
+                    <div className="ib-workspace-center">
+                        <section className="ib-editor-section">
+                            <CodePlace
+                                onTradesGenerated={handleSimulationResults}
+                                onCodeChange={setCurrentCode}
+                                codeProp={currentCode}
+                                onAIAction={handleAIAction}
+                                initialCode={initialCode}
+                                apiEndpoint="http://localhost:5000/api/indicators/preview"
+                                preCode={preCode}
+                                postCode={postCode}
+                            />
+                        </section>
+
+                        <section className="ib-preview-section">
+                            <div className="ib-panel-header" style={{ background: '#131722', padding: '8px 16px' }}>
+                                <h4 style={{ fontSize: '10px' }}>Strategy Preview Chart</h4>
+                            </div>
+                            <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '12px' }}>
+                                <Chart trades={trades} indicators={indicators} data={csvData} />
+                            </div>
+                        </section>
                     </div>
 
-                </div>
-
-                {/* Center Workspace: Editor (Top) & Preview (Bottom) */}
-                <div className="ib-workspace-center">
-                    <section className="ib-editor-section">
-                        <CodePlace
-                            onTradesGenerated={handleSimulationResults}
-                            onCodeChange={setCurrentCode}
-                            onAIAction={handleAIAction}
-                            initialCode={initialCode}
-                            apiEndpoint="http://localhost:5000/api/indicators/preview"
-                            preCode={preCode}
-                            postCode={postCode}
+                    {/* Right Sidebar: AI Copilot */}
+                    <aside className={`ib-sidebar-right ${isChatOpen ? 'open' : 'closed'}`}>
+                        <ChatWithAI
+                            isOpen={isChatOpen}
+                            onClose={() => setIsChatOpen(false)}
+                            initialMode="chat"
+                            lockMode={true}
+                            onApplyCode={setCurrentCode}
+                            context={{
+                                code: currentCode,
+                                visConfigs: visConfigs,
+                                markerConfigs: markerConfigs,
+                                trigger: aiTrigger?.text
+                            }}
                         />
-                    </section>
+                    </aside>
+                </main>
+            </div>
 
-                    <section className="ib-preview-section">
-                        <div className="ib-panel-header" style={{ background: '#131722', padding: '8px 16px' }}>
-                            <h4 style={{ fontSize: '10px' }}>Strategy Preview Chart</h4>
-                        </div>
-                        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', padding: '12px' }}>
-                           <Chart trades={trades} indicators={indicators} data={csvData} />
-                        </div>
-                    </section>
-                </div>
-
-                {/* Right Sidebar: AI Copilot */}
-                <aside className="ib-sidebar-right">
-                    <ChatWithAI 
-                        isOpen={isChatOpen} 
-                        onClose={() => setIsChatOpen(false)} 
-                        initialMode="chat"
-                        lockMode={true}
-                        context={{
-                            code: currentCode,
-                            visConfigs: visConfigs,
-                            markerConfigs: markerConfigs,
-                            trigger: aiTrigger?.text
-                        }}
-                    />
-                </aside>
-
-            </main>
 
             {/* Custom Styles for Mini Buttons */}
             <style>{`

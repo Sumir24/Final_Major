@@ -147,15 +147,17 @@ const Analytics = () => {
     return (
         <div style={{
             fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-            minHeight: '100vh',
+            height: '100vh',
             background: 'radial-gradient(circle at 50% 0%, #1c212e 0%, #131722 100%)',
             color: '#D1D4DC',
             display: 'flex',
-            flexDirection: 'column',
-            boxSizing: 'border-box'
+            flexDirection: 'row',
+            boxSizing: 'border-box',
+            overflow: 'hidden'
         }}>
             <Navbar />
-            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+
+            <div style={{ flex: 1, padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', overflowY: 'auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #2A2E39', paddingBottom: '16px' }}>
                     <div>
@@ -269,6 +271,7 @@ const Analytics = () => {
             </div>
         </div>
     );
+
 };
 
 export default Analytics;

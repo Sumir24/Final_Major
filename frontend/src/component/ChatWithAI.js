@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode = false }) => {
+const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode = false, onApplyCode }) => {
     const [messages, setMessages] = useState([
         { role: 'assistant', content: `Hello! I am BullPeak AI. I am currently in ${initialMode === 'strategy' ? 'Strategy Builder' : 'Indicator Logic'} mode. How can I help you today?` }
     ]);
@@ -33,7 +33,7 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
         try {
             const endpoint = chatMode === 'strategy' ? '/api/strategy' : '/api/chat';
             console.log(`[AI] Dispatching to ${endpoint} (${chatMode} mode)`);
-            
+
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -87,7 +87,7 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
                 const isPython = part.includes('python');
                 const isStrategy = part.toLowerCase().includes('strategy') || content.toLowerCase().includes('strategy code');
                 const code = part.replace(/```(\w+)?\n?/, '').replace(/```$/, '');
-                
+
                 let headerText = isPython ? 'PYTHON CODE' : 'TERMINAL LOG';
                 if (isStrategy && isPython) headerText = 'STRATEGY ENGINE CODE';
 
@@ -97,17 +97,29 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
                             <span>{headerText}</span>
                         </div>
                         <code>{code}</code>
-                        <button
-                            className="copy-btn"
-                            onClick={() => navigator.clipboard.writeText(code)}
-                            title="Copy code"
-                        >
-                            <span className="material-symbols-outlined">content_copy</span>
-                        </button>
+                        <div className="code-actions">
+                            {onApplyCode && isPython && (
+                                <button
+                                    className="apply-btn"
+                                    onClick={() => onApplyCode(code)}
+                                    title="Apply to Strategy Forge"
+                                >
+                                    <span className="material-symbols-outlined">input</span>
+                                    <span>Apply to Editor</span>
+                                </button>
+                            )}
+                            <button
+                                className="copy-btn"
+                                onClick={() => navigator.clipboard.writeText(code)}
+                                title="Copy code"
+                            >
+                                <span className="material-symbols-outlined">content_copy</span>
+                            </button>
+                        </div>
                     </pre>
                 );
             }
-            return part.split('\n').map((line, i) => <p key={`${index}-${i}`} style={{margin: '0 0 8px 0'}}>{line}</p>);
+            return part.split('\n').map((line, i) => <p key={`${index}-${i}`} style={{ margin: '0 0 8px 0' }}>{line}</p>);
         });
     };
 
@@ -124,18 +136,18 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
                                 <span className="status-text">Online</span>
                             </div>
                         </div>
-                        
+
                         {/* Mode Switcher Toggle - Hidden if lockMode is true */}
                         {!lockMode ? (
                             <div className="mode-toggle-container">
-                                <button 
+                                <button
                                     onClick={() => setChatMode('chat')}
                                     className={`mode-btn ${chatMode === 'chat' ? 'active' : ''}`}
                                 >
                                     <span className="material-symbols-outlined">insights</span>
                                     Indicator
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setChatMode('strategy')}
                                     className={`mode-btn ${chatMode === 'strategy' ? 'active' : ''}`}
                                 >
@@ -208,7 +220,7 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
 
             <style>{`
                 .chat-ai-sidebar {
-                    width: 500px;
+                    width: 550px;
                     height: 100%;
                     background: #0d1117;
                     border-left: 1px solid #21262d;
@@ -426,29 +438,51 @@ const ChatWithAI = ({ isOpen, onClose, context, initialMode = 'chat', lockMode =
                     line-height: 1.5;
                 }
 
-                .copy-btn {
+                .code-actions {
                     position: absolute;
                     top: 36px;
                     right: 12px;
+                    display: flex;
+                    gap: 8px;
+                    opacity: 0;
+                    transition: all 0.2s;
+                    z-index: 5;
+                }
+                
+                .code-block:hover .code-actions {
+                    opacity: 1;
+                }
+
+                .copy-btn, .apply-btn {
                     background: rgba(48, 54, 61, 0.8);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     color: #c9d1d9;
-                    width: 32px;
                     height: 32px;
                     border-radius: 6px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    opacity: 0;
+                    padding: 0 8px;
+                    gap: 6px;
                     transition: all 0.2s;
+                    backdrop-filter: blur(4px);
                 }
 
-                .code-block:hover .copy-btn {
-                    opacity: 1;
+                .copy-btn { width: 32px; }
+
+                .apply-btn {
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #58a6ff;
                 }
 
                 .copy-btn:hover {
+                    background: #30363d;
+                    color: white;
+                }
+
+                .apply-btn:hover {
                     background: #58a6ff;
                     color: white;
                     border-color: #58a6ff;

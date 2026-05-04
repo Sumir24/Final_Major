@@ -1,14 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const fs = require('fs');
-const path = require('path');
 const dotenv = require('dotenv');
+const User = require('../models/User');
 
 dotenv.config();
 
-const usersFilePath = path.join(__dirname, '../data/users.json');
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key_123';
 
 /**
@@ -23,26 +20,18 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        // Read users from local data store
-        if (!fs.existsSync(usersFilePath)) {
-            return res.status(500).json({ error: 'User data store is missing.' });
-        }
-
-        const data = fs.readFileSync(usersFilePath, 'utf8');
-        const users = JSON.parse(data);
-
         console.log(`Login attempt for username: "${username}"`);
         
-        // Find user
-        const user = users.find(u => u.username.trim() === username.trim());
+        // Find user in MongoDB
+        const user = await User.findOne({ username: username.trim() });
         
         if (!user) {
             console.log(`User not found: "${username}"`);
             return res.status(401).json({ error: 'Invalid username or password' });
         }
 
-        // Verify password
-        const isMatch = (password.trim() === user.password.trim());
+        // Verify password using the method defined in the User model
+        const isMatch = await user.comparePassword(password.trim());
         console.log(`Checking password for "${username}": ${isMatch ? 'Match' : 'No Match'}`);
         
         if (!isMatch) {
@@ -51,7 +40,7 @@ router.post('/login', async (req, res) => {
 
         // Generate JWT
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user._id, username: user.username, role: user.role },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -60,7 +49,7 @@ router.post('/login', async (req, res) => {
             message: 'Login successful',
             token,
             user: {
-                id: user.id,
+                id: user._id,
                 username: user.username,
                 role: user.role
             }
@@ -74,7 +63,7 @@ router.post('/login', async (req, res) => {
 
 /**
  * POST /api/auth/register
- * Registers a new user and saves to local data store
+ * Registers a new user and saves to MongoDB
  */
 router.post('/register', async (req, res) => {
     try {
@@ -84,35 +73,27 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'Username and password are required' });
         }
 
-        // Read existing users
-        let users = [];
-        if (fs.existsSync(usersFilePath)) {
-            const data = fs.readFileSync(usersFilePath, 'utf8');
-            users = JSON.parse(data);
-        }
-
-        // Check if user already exists
-        const existingUser = users.find(u => u.username === username);
+        // Check if user already exists in MongoDB
+        const existingUser = await User.findOne({ username: username.trim() });
         if (existingUser) {
             return res.status(400).json({ error: 'User already exists' });
         }
 
         // Create new user object
-        const newUser = {
-            id: (users.length + 1).toString(),
-            username,
-            password, // Storing as plain text per user request
+        // The password will be automatically hashed by the pre-save hook in User.js
+        const newUser = new User({
+            username: username.trim(),
+            password: password.trim(),
             role: 'user'
-        };
+        });
 
-        // Add to list and save
-        users.push(newUser);
-        fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+        // Save to MongoDB
+        await newUser.save();
 
         res.status(201).json({
             message: 'User registered successfully',
             user: {
-                id: newUser.id,
+                id: newUser._id,
                 username: newUser.username,
                 role: newUser.role
             }

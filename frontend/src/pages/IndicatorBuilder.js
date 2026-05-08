@@ -32,31 +32,27 @@ const IndicatorBuilder = () => {
 # Welcome! Write your Python (Pandas) logic below.
 # 
 # 1. THE DATA (df):
-#    A dataframe named 'df' is automatically loaded with Date, Open, High, Low, Close, Volume.
-#    A 'Datetime' column is also pre-calculated for you.
+#    A dataframe named 'df' is automatically loaded with Open, High, Low, Close.
 # 
 # 2. DO YOUR MATH:
-#    Create your new indicator columns based on the 'df' dataframe.
-#    Example: 
 #    df['SMA'] = df['Close'].rolling(window=20).mean()
 # 
-# 3. TRADE SIGNALS (MARKERS):
-#    To generate Buy/Sell arrows on the chart, create a column that equals True (or 1).
-#    Example:
-#    df['Bullish_Cross'] = df['SMA_Fast'] > df['SMA_Slow']
-#    Then, map 'Bullish_Cross' to a 'Buy' marker in the Signal Markers panel below!
+# 3. SYNC WITH UI (NEW!):
+#    Use these tags to auto-configure the chart panels below:
+#    # @vis { name: "SMA", type: "line", color: "#2962FF", overlay: true }
+#    # @signal { name: "Cross", type: "buy", color: "#00E676" }
 
 # Example: Bollinger Bands
 window = 20
 std_dev = 2.0
 
-# ATR is available automatically! Use it for scaling.
-# Example: df['Momentum'] = (df['Close'].diff(14) / df['ATR']) * 10
-
 df['SMA'] = df['Close'].rolling(window=window).mean()
 df['STD'] = df['Close'].rolling(window=window).std()
 df['Upper'] = df['SMA'] + (df['STD'] * std_dev)
 df['Lower'] = df['SMA'] - (df['STD'] * std_dev)
+
+# @vis { name: "Upper", type: "line", color: "#00E676", overlay: true }
+# @vis { name: "Lower", type: "line", color: "#FF5252", overlay: true }
 `;
 
     const preCode = `
@@ -177,11 +173,73 @@ for trd in trades:
     };
 
 
+    const syncConfigsFromCode = (code) => {
+        const visConfigsFound = [];
+        const markerConfigsFound = [];
+        
+        const lines = code.split('\n');
+        lines.forEach(line => {
+            // 1. Support @vis tag: # @vis { name: "...", type: "...", color: "...", overlay: ... }
+            const visMatch = line.match(/#\s*@vis\s*({.*})/i);
+            if (visMatch) {
+                try {
+                    const content = visMatch[1].replace(/(\w+):/g, '"$1":').replace(/'/g, '"');
+                    const parsed = JSON.parse(content);
+                    visConfigsFound.push({
+                        name: parsed.name || "Indicator",
+                        type: parsed.type || "line",
+                        color: parsed.color || "#2962FF",
+                        overlay: parsed.overlay !== undefined ? parsed.overlay : true
+                    });
+                } catch (e) {}
+            }
+            
+            // 2. Support @signal tag: # @signal { name: "...", type: "...", color: "..." }
+            const signalMatch = line.match(/#\s*@signal\s*({.*})/i);
+            if (signalMatch) {
+                try {
+                    const content = signalMatch[1].replace(/(\w+):/g, '"$1":').replace(/'/g, '"');
+                    const parsed = JSON.parse(content);
+                    markerConfigsFound.push({
+                        name: parsed.name || "Signal",
+                        type: parsed.type || "buy",
+                        color: parsed.color || "#00E676"
+                    });
+                } catch (e) {}
+            }
+
+            // 3. Fallback: Support indicators.append logic
+            const appendMatch = line.match(/indicators\.append\(\{\s*"name":\s*"([^"]+)",\s*"type":\s*"([^"]+)",\s*"color":\s*"([^"]+)",\s*"overlay":\s*(True|False)/i);
+            if (appendMatch) {
+                visConfigsFound.push({
+                    name: appendMatch[1],
+                    type: appendMatch[2],
+                    color: appendMatch[3],
+                    overlay: appendMatch[4] === 'True'
+                });
+            }
+        });
+        
+        if (visConfigsFound.length > 0) setVisConfigs(visConfigsFound);
+        if (markerConfigsFound.length > 0) setMarkerConfigs(markerConfigsFound);
+    };
+
+    const handleApplyCode = (code) => {
+        setCurrentCode(code);
+        syncConfigsFromCode(code);
+    };
+
     const handleAIAction = (actionType) => {
         setIsChatOpen(true);
         const prompt = actionType === 'explain'
             ? `Explain the following python trading logic:\n\n\`\`\`python\n${currentCode}\n\`\`\``
-            : `Refine and optimize this python trading logic, ensuring it uses pandas best practices:\n\n\`\`\`python\n${currentCode}\n\`\`\``;
+            : `Refine and optimize this python trading logic, ensuring it uses pandas best practices. 
+               Also, please include visualization metadata as comments at the bottom of the code using this format:
+               # @vis { name: "ColumnName", type: "line|histogram", color: "#HEX", overlay: true|false }
+               # @signal { name: "SignalColumn", type: "buy|sell", color: "#HEX" }
+               
+               Current Code:
+               \`\`\`python\n${currentCode}\n\`\`\``;
 
         setAiTrigger({ id: Date.now(), text: prompt });
     };
@@ -276,9 +334,14 @@ for trd in trades:
                                     <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#00E676' }}>stacked_line_chart</span>
                                     Visualizations
                                 </h4>
-                                <button onClick={addVisConfig} className="ib-btn-mini-add" title="Add Visualization">
-                                    <span className="material-symbols-outlined">add</span>
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={() => syncConfigsFromCode(currentCode)} className="ib-btn-mini-add" title="Sync from Code">
+                                        <span className="material-symbols-outlined">sync</span>
+                                    </button>
+                                    <button onClick={addVisConfig} className="ib-btn-mini-add" title="Add Visualization">
+                                        <span className="material-symbols-outlined">add</span>
+                                    </button>
+                                </div>
                             </div>
                             <div className="ib-panel-content" style={{ padding: '16px' }}>
                                 {visConfigs.length === 0 ? (
@@ -344,9 +407,14 @@ for trd in trades:
                                     <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#FF5252' }}>ads_click</span>
                                     Trade Signals
                                 </h4>
-                                <button onClick={addMarkerConfig} className="ib-btn-mini-add">
-                                    <span className="material-symbols-outlined">add</span>
-                                </button>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button onClick={() => syncConfigsFromCode(currentCode)} className="ib-btn-mini-add" title="Sync from Code">
+                                        <span className="material-symbols-outlined">sync</span>
+                                    </button>
+                                    <button onClick={addMarkerConfig} className="ib-btn-mini-add">
+                                        <span className="material-symbols-outlined">add</span>
+                                    </button>
+                                </div>
                             </div>
                             <div className="ib-panel-content" style={{ padding: '16px' }}>
                                 {markerConfigs.map((config, i) => (
@@ -419,7 +487,7 @@ for trd in trades:
                             onClose={() => setIsChatOpen(false)}
                             initialMode="chat"
                             lockMode={true}
-                            onApplyCode={setCurrentCode}
+                            onApplyCode={handleApplyCode}
                             context={{
                                 code: currentCode,
                                 visConfigs: visConfigs,

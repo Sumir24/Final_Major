@@ -5,7 +5,7 @@ const FileItem = ({ item, depth = 0, onSelect, onDelete, onPreview, onFolderTarg
 
     return (
         <div style={{ marginLeft: depth * 12 }}>
-            <div 
+            <div
                 style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -36,24 +36,24 @@ const FileItem = ({ item, depth = 0, onSelect, onDelete, onPreview, onFolderTarg
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    <span className="material-symbols-outlined" style={{ 
-                        fontSize: '18px', 
-                        color: isTargeted ? '#00dbe9' : (item.isDirectory ? '#f1c40f' : '#3498db') 
+                    <span className="material-symbols-outlined" style={{
+                        fontSize: '18px',
+                        color: isTargeted ? '#00dbe9' : (item.isDirectory ? '#f1c40f' : '#3498db')
                     }}>
                         {item.isDirectory ? (isOpen ? 'folder_open' : 'folder') : 'description'}
                     </span>
-                    <span style={{ 
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
+                    <span style={{
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         fontWeight: (item.isDirectory || isTargeted) ? '600' : '400'
                     }}>{item.name}</span>
                 </div>
-                
+
                 <div className="file-actions" style={{ display: 'flex', gap: '4px' }}>
                     {!item.isDirectory && (
-                        <span 
-                            className="material-symbols-outlined" 
+                        <span
+                            className="material-symbols-outlined"
                             style={{ fontSize: '14px', color: '#00dbe9', padding: '4px' }}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -61,8 +61,8 @@ const FileItem = ({ item, depth = 0, onSelect, onDelete, onPreview, onFolderTarg
                             }}
                         >visibility</span>
                     )}
-                    <span 
-                        className="material-symbols-outlined" 
+                    <span
+                        className="material-symbols-outlined"
                         style={{ fontSize: '14px', color: '#ff4757', padding: '4px' }}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -71,14 +71,14 @@ const FileItem = ({ item, depth = 0, onSelect, onDelete, onPreview, onFolderTarg
                     >delete</span>
                 </div>
             </div>
-            
+
             {item.isDirectory && isOpen && item.children && (
                 <div>
                     {item.children.map(child => (
-                        <FileItem 
-                            key={child.id} 
-                            item={child} 
-                            depth={depth + 1} 
+                        <FileItem
+                            key={child.id}
+                            item={child}
+                            depth={depth + 1}
                             onSelect={onSelect}
                             onDelete={onDelete}
                             onPreview={onPreview}
@@ -125,9 +125,9 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
             const response = await fetch('/api/files/folder', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    name: newFolderName, 
-                    parentPath: targetFolder.path 
+                body: JSON.stringify({
+                    name: newFolderName,
+                    parentPath: targetFolder.path
                 })
             });
             if (response.ok) {
@@ -191,7 +191,7 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
                 display: 'flex',
                 gap: '8px'
             }}>
-                <button 
+                <button
                     onClick={() => fileInputRef.current.click()}
                     style={{
                         flex: 1,
@@ -212,7 +212,7 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload_file</span>
                     UPLOAD
                 </button>
-                <button 
+                <button
                     onClick={() => setIsCreatingFolder(true)}
                     style={{
                         padding: '8px',
@@ -225,7 +225,7 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
                 >
                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>create_new_folder</span>
                 </button>
-                <button 
+                <button
                     onClick={() => setTargetFolder({ id: null, path: '' })}
                     style={{
                         padding: '8px',
@@ -245,9 +245,9 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
             {isCreatingFolder && (
                 <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <input 
+                        <input
                             autoFocus
-                            type="text" 
+                            type="text"
                             placeholder={`New folder in ${targetFolder.path || 'root'}...`}
                             value={newFolderName}
                             onChange={(e) => setNewFolderName(e.target.value)}
@@ -273,17 +273,17 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
                 </div>
             )}
 
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
+            <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
                 onChange={handleUpload}
             />
 
             {/* File List */}
-            <div style={{ 
-                flex: 1, 
-                overflowY: 'auto', 
+            <div style={{
+                flex: 1,
+                overflowY: 'auto',
                 padding: '12px 8px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -299,9 +299,9 @@ const FileExplorer = ({ onFileSelect, onFilePreview }) => {
                     </div>
                 ) : (
                     files.map(item => (
-                        <FileItem 
-                            key={item.id} 
-                            item={item} 
+                        <FileItem
+                            key={item.id}
+                            item={item}
                             onSelect={onFileSelect}
                             onDelete={handleDelete}
                             onPreview={onFilePreview}

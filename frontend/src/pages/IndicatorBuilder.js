@@ -176,7 +176,7 @@ for trd in trades:
     const syncConfigsFromCode = (code) => {
         const visConfigsFound = [];
         const markerConfigsFound = [];
-        
+
         const lines = code.split('\n');
         lines.forEach(line => {
             // 1. Support @vis tag: # @vis { name: "...", type: "...", color: "...", overlay: ... }
@@ -191,9 +191,9 @@ for trd in trades:
                         color: parsed.color || "#2962FF",
                         overlay: parsed.overlay !== undefined ? parsed.overlay : true
                     });
-                } catch (e) {}
+                } catch (e) { }
             }
-            
+
             // 2. Support @signal tag: # @signal { name: "...", type: "...", color: "..." }
             const signalMatch = line.match(/#\s*@signal\s*({.*})/i);
             if (signalMatch) {
@@ -205,7 +205,7 @@ for trd in trades:
                         type: parsed.type || "buy",
                         color: parsed.color || "#00E676"
                     });
-                } catch (e) {}
+                } catch (e) { }
             }
 
             // 3. Fallback: Support indicators.append logic
@@ -219,7 +219,7 @@ for trd in trades:
                 });
             }
         });
-        
+
         if (visConfigsFound.length > 0) setVisConfigs(visConfigsFound);
         if (markerConfigsFound.length > 0) setMarkerConfigs(markerConfigsFound);
     };

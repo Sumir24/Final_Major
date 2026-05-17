@@ -438,11 +438,6 @@ def generate(user_prompt: str, quiet: bool = False) -> dict:
     return result_dict
 
 
-# =============================================
-#  PREVIEW VALUES
-# =============================================
-    print(df[display_cols].tail(5))
-    print("─" * 62 + "\n")
 
 
 # =============================================
